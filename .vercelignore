@@ -1,0 +1,13 @@
+ComandaFacil_web
+backups
+tests
+*.db
+secret.key
+.env
+Dockerfile
+docker-compose.yml
+Caddyfile
+*.bat
+iniciar_servidor.sh
+GUIA_DAS_MELHORIAS.md
+__pycache__
