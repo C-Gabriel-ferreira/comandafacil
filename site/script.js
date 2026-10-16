@@ -65,6 +65,8 @@
     })(m);
   }
 
+  $("year").textContent = new Date().getFullYear();
+
   // ---- download e contato (config.js)
   var dl = $("dl");
   if (cfg.downloadUrl) {
@@ -76,6 +78,5 @@
       var msg = encodeURIComponent("Olá! Tenho interesse no plano " + a.dataset.plan + " do ComandaFácil.");
       a.href = "https://wa.me/" + cfg.whatsapp + "?text=" + msg; a.target = "_blank"; a.rel = "noopener";
     });
-    $("contact").innerHTML = '<a href="https://wa.me/' + cfg.whatsapp + '" target="_blank" rel="noopener">Falar pelo WhatsApp</a>';
   }
 })();

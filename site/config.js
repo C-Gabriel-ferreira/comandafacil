@@ -3,5 +3,8 @@ window.COMANDAFACIL = {
   // Link do instalador (ex.: arquivo .zip/.exe em GitHub Releases). Vazio = botão "em breve".
   downloadUrl: "",
   // WhatsApp com DDI+DDD+número, só dígitos (ex.: "5511999999999"). Vazio = botões de plano levam ao download.
-  whatsapp: "",
+  whatsapp: "5594991016248",
+  email: "helptechcanaa@gmail.com",
+  telefone: "(94) 99101-6248",
+  empresa: "HelpTech",
 };
