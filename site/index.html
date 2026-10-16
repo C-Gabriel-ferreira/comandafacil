@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ComandaFácil — comandas, mesas e caixa para bares e restaurantes</title>
+<meta name="description" content="Sistema de comandas instalado no seu estabelecimento: mesas, balcão, delivery, estoque e relatórios. Garçons lançam pedidos pelo celular.">
+<meta name="theme-color" content="#12201b">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<a class="skip" href="#conteudo">Ir para o conteúdo</a>
+
+<header class="top">
+  <a class="logo" href="#topo" aria-label="ComandaFácil, início">
+    <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" fill="currentColor"/><path d="M20 14h24v36l-4-3-4 3-4-3-4 3-4-3-4 3z" fill="#fffef9"/><path d="M26 24h12M26 31h12M26 38h7" stroke="#e5560a" stroke-width="3" stroke-linecap="round"/></svg>
+    ComandaFácil
+  </a>
+  <nav aria-label="Principal">
+    <a href="#como">Como funciona</a>
+    <a href="#recursos">Recursos</a>
+    <a href="#planos">Planos</a>
+    <a class="nav-cta" href="#baixar">Baixar</a>
+  </nav>
+</header>
+
+<main id="conteudo">
+<section class="hero" id="topo">
+  <div class="hero-copy">
+    <h1>Do pedido ao caixa, sem comanda perdida.</h1>
+    <p class="lead">O ComandaFácil controla mesas, balcão e delivery no computador do seu estabelecimento. Os garçons lançam pedidos pelo celular e o caixa fecha a conta com troco e vários meios de pagamento.</p>
+    <div class="actions">
+      <a class="btn primary" href="#planos">Ver planos</a>
+      <a class="btn" href="#baixar">Baixar para Windows</a>
+    </div>
+    <p class="hint">Teste ao lado: toque nos itens do cardápio e feche a conta.</p>
+  </div>
+
+  <div class="demo" aria-label="Demonstração de uma comanda">
+    <div class="ticket" id="ticket">
+      <div class="ticket-head">
+        <b>Mesa 4</b>
+        <span>Garçom: Ana</span>
+      </div>
+      <ul class="lines" id="lines" aria-live="polite"></ul>
+      <p class="empty" id="empty">Comanda vazia. Toque em um item abaixo.</p>
+      <label class="svc"><input type="checkbox" id="svc" checked> Serviço 10%</label>
+      <dl class="totals">
+        <div><dt>Subtotal</dt><dd id="sub">R$ 0,00</dd></div>
+        <div><dt>Serviço</dt><dd id="svcv">R$ 0,00</dd></div>
+        <div class="grand"><dt>Total</dt><dd id="tot">R$ 0,00</dd></div>
+      </dl>
+      <div class="stamp" id="stamp" aria-hidden="true">Pago</div>
+      <div class="ticket-actions">
+        <button class="btn small" id="clear" type="button">Limpar</button>
+        <button class="btn small primary" id="close" type="button">Fechar conta</button>
+      </div>
+    </div>
+    <div class="menu" role="group" aria-label="Cardápio de exemplo" id="menu"></div>
+  </div>
+</section>
+
+<section class="flow" id="como">
+  <div class="wrap">
+    <h2>Do salão ao caixa em três passos</h2>
+    <ol class="steps">
+      <li>
+        <h3>O garçom anota no celular</h3>
+        <p>Abre a mesa, escolhe os itens do cardápio e acrescenta observações como “sem cebola”. Se a mesa já está aberta, continua da mesma comanda.</p>
+      </li>
+      <li>
+        <h3>O pedido chega ao caixa</h3>
+        <p>O gerente enxerga todas as mesas abertas, junta ou divide contas e acompanha há quanto tempo cada comanda está aberta.</p>
+      </li>
+      <li>
+        <h3>A conta fecha certa</h3>
+        <p>Pagamento em dinheiro, Pix, cartão ou vale-refeição na mesma conta, com troco calculado e cupom pronto para imprimir.</p>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<section class="parts" id="pecas">
+  <div class="wrap two">
+    <div>
+      <h2>No seu computador, não na internet</h2>
+      <p class="big">O sistema roda no computador do caixa. Os dados ficam com você e o atendimento continua mesmo quando a internet cai.</p>
+      <p>Celulares e tablets dos garçons se conectam pelo Wi-Fi do estabelecimento. Todo dia o sistema salva uma cópia de segurança e guarda as 14 mais recentes.</p>
+    </div>
+    <div class="mesas" aria-label="Exemplo do painel de mesas">
+      <p class="mesas-title">Painel de mesas <span class="tag">Terminal do garçom: em breve</span></p>
+      <div class="grid" id="grid"></div>
+      <ul class="legend">
+        <li><i class="dot livre"></i>Livre</li>
+        <li><i class="dot aberta"></i>Aberta</li>
+        <li><i class="dot conta"></i>Pediu a conta</li>
+      </ul>
+      <p class="hint">Toque em uma mesa para mudar o estado.</p>
+    </div>
+  </div>
+</section>
+
+<section class="features" id="recursos">
+  <div class="wrap">
+    <h2>O que já vem no sistema</h2>
+    <ul class="feat">
+      <li><b>Mesa, balcão e delivery</b><span>Cada tipo de comanda com seus dados: nome do cliente, telefone, endereço e taxa de entrega.</span></li>
+      <li><b>Taxa de serviço de 10%</b><span>Opcional por comanda, ou ligada automaticamente para as mesas.</span></li>
+      <li><b>Vários pagamentos na mesma conta</b><span>Dinheiro, Pix, débito, crédito e vale-refeição. Troco só em dinheiro, como na prática.</span></li>
+      <li><b>Estoque com alerta</b><span>Baixa automática a cada item lançado e aviso quando chega ao mínimo.</span></li>
+      <li><b>Relatórios</b><span>Vendas por dia, por hora, por produto e por forma de pagamento.</span></li>
+      <li><b>Cancelamento com motivo</b><span>Cancelar ou estornar uma conta fechada exige justificativa e devolve o estoque.</span></li>
+      <li><b>Gerente e garçom</b><span>Cada pessoa com seu usuário. O gerente vê relatórios e configurações; o garçom, só o salão.</span></li>
+      <li><b>Histórico de tudo</b><span>Registro de quem abriu, alterou, fechou ou cancelou cada comanda.</span></li>
+    </ul>
+  </div>
+</section>
+
+<section class="plans" id="planos">
+  <div class="wrap">
+    <h2>Planos</h2>
+    <p class="sub">Todos incluem instalação guiada e atualizações. Sem fidelidade.</p>
+    <!-- Valores de exemplo: ajuste preços e itens aqui. -->
+    <div class="plan-row">
+      <article class="plan">
+        <h3>Essencial</h3>
+        <p class="price"><b>R$ 69</b>/mês</p>
+        <ul>
+          <li>1 computador no caixa</li>
+          <li>Mesas, balcão e delivery</li>
+          <li>Relatórios e estoque</li>
+          <li>Backup diário automático</li>
+        </ul>
+        <a class="btn plan-cta" data-plan="Essencial" href="#baixar">Quero o Essencial</a>
+      </article>
+      <article class="plan featured">
+        <h3>Salão</h3>
+        <p class="price"><b>R$ 129</b>/mês</p>
+        <ul>
+          <li>Tudo do Essencial</li>
+          <li>Terminais móveis dos garçons</li>
+          <li>Pedidos enviados à cozinha e ao caixa</li>
+          <li>Garçons e gerentes ilimitados</li>
+        </ul>
+        <a class="btn primary plan-cta" data-plan="Salão" href="#baixar">Quero o Salão</a>
+        <p class="note">Terminais móveis em desenvolvimento.</p>
+      </article>
+      <article class="plan">
+        <h3>Rede</h3>
+        <p class="price"><b>Sob consulta</b></p>
+        <ul>
+          <li>Várias unidades</li>
+          <li>Relatório consolidado</li>
+          <li>Suporte prioritário</li>
+        </ul>
+        <a class="btn plan-cta" data-plan="Rede" href="#baixar">Falar sobre a Rede</a>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="download" id="baixar">
+  <div class="wrap two">
+    <div>
+      <h2>Baixe e instale em minutos</h2>
+      <p class="big">Instale no computador do caixa, crie a conta de gerente e cadastre seus produtos e mesas.</p>
+      <p>Funciona em Windows 10 ou 11. Os garçons usam o navegador do celular, sem instalar nada.</p>
+    </div>
+    <div class="dl-card">
+      <h3>ComandaFácil para Windows</h3>
+      <p class="muted">Versão 2.0</p>
+      <a class="btn primary" id="dl" href="#baixar" aria-disabled="true">Baixar instalador</a>
+      <p class="hint" id="dl-note">O instalador será liberado em breve.</p>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <span>ComandaFácil</span>
+    <span id="contact"></span>
+  </div>
+</footer>
+
+<script src="config.js"></script>
+<script src="script.js"></script>
+</body>
+</html>
