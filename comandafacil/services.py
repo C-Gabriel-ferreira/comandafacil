@@ -1,9 +1,8 @@
 """Regras de negócio (sem Flask): totais, estoque, fechamento, cancelamento, mesas, relatórios."""
 import re
-import sqlite3
 from datetime import date, datetime, timedelta
 
-from .db import get_setting, now, transaction
+from .db import INTEGRITY_ERRORS, get_setting, now, transaction
 from .money import format_brl
 
 PAYMENT_METHODS = ["Dinheiro", "Pix", "Cartão de débito", "Cartão de crédito", "Vale-refeição"]
@@ -65,7 +64,7 @@ def open_order(conn, kind, table_id=None, customer_name="", phone="", address=""
             "service_pct,delivery_fee_cents,created_at,created_by) VALUES (?,?,?,?,?,?,?,?,?,?)",
             (kind, table_id, customer_name, phone, address, int(auto), pct, delivery_fee_cents, now(), user_id))
         return cur.lastrowid, True
-    except sqlite3.IntegrityError:
+    except INTEGRITY_ERRORS:
         row = conn.execute("SELECT id FROM orders WHERE table_id=? AND status='aberta'", (table_id,)).fetchone()
         if row:
             return row["id"], False

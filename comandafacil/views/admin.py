@@ -39,7 +39,7 @@ def adicionar_usuario():
     role = f.get("role") if f.get("role") in ("gerente", "garcom") else "garcom"
     if not USERNAME_RE.match(username) or len(pw) < MIN_PASSWORD:
         flash(f"Usuário (3-30 letras/números) e senha (mínimo {MIN_PASSWORD} caracteres) são obrigatórios.", "erro")
-    elif conn.execute("SELECT 1 FROM users WHERE username=?", (username,)).fetchone():
+    elif conn.execute("SELECT 1 FROM users WHERE lower(username)=lower(?)", (username,)).fetchone():
         flash("Esse nome de usuário já existe.", "erro")
     else:
         conn.execute("INSERT INTO users(username,display_name,password_hash,role,created_at) VALUES (?,?,?,?,?)",
@@ -101,6 +101,9 @@ def config():
 @bp.post("/backup/agora")
 @idempotent
 def backup_agora():
+    if dbm.USING_PG:
+        flash("Os backups deste ambiente são automáticos, feitos pelo Supabase.", "erro")
+        return redirect(url_for("admin.config"))
     dest = dbm.make_backup("manual")
     audit(get_db(), "backup_manual", dest.name)
     flash(f"Backup criado: {dest.name}", "sucesso")
@@ -121,7 +124,7 @@ def auditoria():
     q = request.args.get("q", "").strip()
     sql, args = "SELECT * FROM audit_log", []
     if q:
-        sql += " WHERE action LIKE ? OR details LIKE ? OR user_name LIKE ?"
+        sql += " WHERE lower(action) LIKE lower(?) OR lower(details) LIKE lower(?) OR lower(user_name) LIKE lower(?)"
         args = [f"%{q}%"] * 3
     rows = get_db().execute(sql + " ORDER BY id DESC LIMIT 300", args).fetchall()
     return render_template("auditoria.html", rows=rows, q=q)

@@ -1,5 +1,6 @@
 """Banco SQLite: conexão, esquema, migrações e backups."""
 import os
+import re
 import shutil
 import sqlite3
 import sys
@@ -10,6 +11,29 @@ from datetime import datetime
 from pathlib import Path
 
 from .clock import now_dt
+
+try:  # driver do Postgres (só necessário quando DATABASE_URL está definida)
+    import psycopg
+except ImportError:  # pragma: no cover
+    psycopg = None
+
+
+def _pg_url():
+    url = os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL") or ""
+    if not url:
+        return ""
+    from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+    parts = urlsplit(url)
+    query = [(k, v) for k, v in parse_qsl(parts.query) if k != "supa"]  # 'supa' não é aceito pelo libpq
+    if parts.scheme == "postgres":
+        parts = parts._replace(scheme="postgresql")
+    return urlunsplit(parts._replace(query=urlencode(query)))
+
+
+PG_URL = _pg_url()
+USING_PG = bool(PG_URL)
+INTEGRITY_ERRORS = (sqlite3.IntegrityError,) + ((psycopg.errors.IntegrityError,) if psycopg else ())
+PG_LOCK_KEY = 74_206_001
 
 BASE_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent))
 _default_data = Path(sys.executable).parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent.parent
@@ -41,7 +65,94 @@ def now() -> str:
     return now_dt().isoformat(timespec="seconds")
 
 
-def connect(path=None) -> sqlite3.Connection:
+class Row:
+    """Linha de resultado com acesso por nome, índice e keys() (igual ao sqlite3.Row)."""
+    __slots__ = ("_names", "_vals")
+
+    def __init__(self, names, vals):
+        self._names, self._vals = names, vals
+
+    def __getitem__(self, k):
+        if isinstance(k, (int, slice)):
+            return self._vals[k]
+        return self._vals[self._names.index(k)]
+
+    def keys(self):
+        return list(self._names)
+
+    def __iter__(self):
+        return iter(self._vals)
+
+    def __len__(self):
+        return len(self._vals)
+
+    def __repr__(self):
+        return f"Row({dict(zip(self._names, self._vals))})"
+
+
+def _translate(sql):
+    sql = sql.replace("%", "%%").replace("?", "%s")
+    return re.sub(r"GROUP_CONCAT\(", "string_agg(", sql)
+
+
+class PgCursor:
+    def __init__(self, cur, lastrowid=None):
+        self._cur, self.lastrowid = cur, lastrowid
+        self.rowcount = cur.rowcount
+        self._names = [d.name for d in cur.description] if cur.description else []
+
+    def _wrap(self, r):
+        return None if r is None else Row(self._names, r)
+
+    def fetchone(self):
+        return self._wrap(self._cur.fetchone()) if self._names else None
+
+    def fetchall(self):
+        return [self._wrap(r) for r in self._cur.fetchall()] if self._names else []
+
+    def __iter__(self):
+        return iter(self.fetchall())
+
+
+class PgConn:
+    """Adaptador mínimo: expõe a API do sqlite3 (execute/executemany/'?'/lastrowid) sobre psycopg."""
+
+    def __init__(self):
+        self._c = psycopg.connect(PG_URL, autocommit=True, prepare_threshold=None, connect_timeout=15)
+
+    def execute(self, sql, params=()):
+        sql = _translate(sql)
+        returning = False
+        m = re.match(r"\s*INSERT\s+INTO\s+(\w+)", sql, re.I)
+        if m and m.group(1).lower() != "settings" and "returning" not in sql.lower():
+            sql += " RETURNING id"
+            returning = True
+        cur = self._c.execute(sql, tuple(params))
+        last = None
+        if returning:
+            row = cur.fetchone()
+            last = row[0] if row else None
+            return PgCursor(_Done(cur.rowcount), last)
+        return PgCursor(cur)
+
+    def executemany(self, sql, seq):
+        with self._c.cursor() as cur:
+            cur.executemany(_translate(sql), [tuple(p) for p in seq])
+
+    def close(self):
+        self._c.close()
+
+
+class _Done:
+    description = None
+
+    def __init__(self, rowcount):
+        self.rowcount = rowcount
+
+
+def connect(path=None):
+    if USING_PG and path is None:
+        return PgConn()
     conn = sqlite3.connect(str(path or DB_PATH), timeout=15, isolation_level=None)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
@@ -65,7 +176,11 @@ def close_db(_exc=None):
 @contextmanager
 def transaction(conn):
     """Transação com bloqueio de escrita imediato (evita corrida entre cliques duplos)."""
-    conn.execute("BEGIN IMMEDIATE")
+    if USING_PG:
+        conn.execute("BEGIN")
+        conn.execute("SELECT pg_advisory_xact_lock(?)", (PG_LOCK_KEY,))  # serializa escritas (como o SQLite)
+    else:
+        conn.execute("BEGIN IMMEDIATE")
     try:
         yield conn
         conn.execute("COMMIT")
@@ -161,6 +276,19 @@ CREATE TABLE audit_log (
 );
 """
 
+PG_SCHEMA = (SCHEMA
+    .replace("INTEGER PRIMARY KEY AUTOINCREMENT", "SERIAL PRIMARY KEY")
+    .replace("username TEXT NOT NULL UNIQUE COLLATE NOCASE,", "username TEXT NOT NULL,")
+    + """
+CREATE UNIQUE INDEX idx_users_username ON users(lower(username));
+CREATE INDEX idx_payments_order ON payments(order_id);
+CREATE INDEX idx_stock_product ON stock_movements(product_id);
+CREATE INDEX idx_orders_table ON orders(table_id);
+CREATE INDEX idx_orders_created_by ON orders(created_by);
+""" + "".join(f"ALTER TABLE {t} ENABLE ROW LEVEL SECURITY;\n" for t in (
+    "settings", "users", "products", "tables", "orders", "order_items", "payments",
+    "stock_movements", "audit_log")))
+
 SEED_PRODUCTS = [
     ("Água mineral", "Bebidas", 300), ("Refrigerante lata", "Bebidas", 600),
     ("Suco natural", "Bebidas", 800), ("Café", "Bebidas", 400),
@@ -239,7 +367,24 @@ def _upgrade_legacy_database():
     os.replace(tmp, DB_PATH)
 
 
+def _init_pg():
+    conn = connect()
+    try:
+        with transaction(conn):
+            if conn.execute("SELECT to_regclass('public.settings')").fetchone()[0] is None:
+                for stmt in PG_SCHEMA.split(";"):
+                    if stmt.strip():
+                        conn.execute(stmt)
+                for k, v in DEFAULT_SETTINGS.items():
+                    set_setting(conn, k, v)
+                _seed_examples(conn)
+    finally:
+        conn.close()
+
+
 def init_db():
+    if USING_PG:
+        return _init_pg()
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     legacy = False
     if DB_PATH.exists() and DB_PATH.stat().st_size > 0:
@@ -271,6 +416,8 @@ def init_db():
 
 # ----------------------------------------------------------------- backups
 def make_backup(label="manual") -> Path:
+    if USING_PG:
+        raise RuntimeError("Backups são gerenciados pelo Supabase.")
     BACKUP_DIR.mkdir(parents=True, exist_ok=True)
     stamp = now_dt().strftime("%Y-%m-%d_%H%M%S")
     dest = BACKUP_DIR / f"comandas_{stamp}_{label}.db"
@@ -291,6 +438,8 @@ def prune_backups(keep_auto=14):
 
 
 def list_backups():
+    if USING_PG:
+        return []
     if not BACKUP_DIR.exists():
         return []
     rows = []
@@ -302,6 +451,8 @@ def list_backups():
 
 
 def daily_backup_if_needed():
+    if USING_PG:
+        return None
     today = now_dt().strftime("%Y-%m-%d")
     if BACKUP_DIR.exists() and any(BACKUP_DIR.glob(f"comandas_{today}_*_auto.db")):
         return None

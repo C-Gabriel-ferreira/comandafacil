@@ -21,6 +21,17 @@ def load_secret_key() -> str:
     env = os.environ.get("COMANDAFACIL_SECRET_KEY")
     if env:
         return env
+    if dbm.USING_PG:  # sem disco persistente: a chave fica no banco
+        conn = dbm.connect()
+        try:
+            row = conn.execute("SELECT value FROM settings WHERE key='secret_key'").fetchone()
+            if row:
+                return row["value"]
+            key = secrets.token_hex(32)
+            conn.execute("INSERT INTO settings(key,value) VALUES('secret_key',?) ON CONFLICT(key) DO NOTHING", (key,))
+            return conn.execute("SELECT value FROM settings WHERE key='secret_key'").fetchone()["value"]
+        finally:
+            conn.close()
     dbm.DATA_DIR.mkdir(parents=True, exist_ok=True)
     f = dbm.DATA_DIR / "secret.key"
     if f.exists() and f.read_text().strip():

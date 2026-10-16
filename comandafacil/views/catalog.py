@@ -3,6 +3,7 @@ import re
 
 from flask import Blueprint, flash, g, redirect, render_template, request, url_for
 
+from .. import db as dbm
 from ..db import get_db
 from ..money import parse_money
 from ..security import audit, idempotent, manager_required
@@ -158,7 +159,7 @@ def adicionar_mesa():
         audit(conn, "mesas_criadas", f"{qty} mesa(s) {name}")
         flash(f"{qty} mesa(s) adicionada(s).", "sucesso")
     except Exception as e:
-        if "UNIQUE" in str(e):
+        if isinstance(e, dbm.INTEGRITY_ERRORS):
             flash("Já existe uma mesa com esse nome.", "erro")
         else:
             raise
@@ -176,7 +177,7 @@ def renomear_mesa(tid):
             audit(get_db(), "mesa_renomeada", f"#{tid} -> {name}")
             flash("Mesa renomeada.", "sucesso")
         except Exception as e:
-            if "UNIQUE" not in str(e):
+            if not isinstance(e, dbm.INTEGRITY_ERRORS):
                 raise
             flash("Já existe uma mesa com esse nome.", "erro")
     return redirect(url_for("catalog.mesas"))

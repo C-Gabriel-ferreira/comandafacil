@@ -58,7 +58,7 @@ def login():
         if _blocked(key):
             flash("Muitas tentativas. Aguarde alguns minutos e tente de novo.", "erro")
         else:
-            row = conn.execute("SELECT * FROM users WHERE username=? AND active=1", (username,)).fetchone()
+            row = conn.execute("SELECT * FROM users WHERE lower(username)=lower(?) AND active=1", (username,)).fetchone()
             if row and check_password_hash(row["password_hash"], request.form.get("password", "")):
                 _fails.pop(key, None)
                 session.clear()
