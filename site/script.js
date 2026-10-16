@@ -69,9 +69,22 @@
 
   // ---- download e contato (config.js)
   var dl = $("dl");
+  function enableDownload(url, version, bytes) {
+    dl.href = url; dl.removeAttribute("aria-disabled");
+    var mb = bytes ? " · " + Math.round(bytes / 1048576) + " MB" : "";
+    $("dl-meta").textContent = "Windows 10 ou 11" + (version ? " · versão " + version : "") + mb;
+    $("dl-note").textContent = "Instalador .exe. Funciona sem internet depois de instalado.";
+  }
   if (cfg.downloadUrl) {
-    dl.href = cfg.downloadUrl; dl.removeAttribute("aria-disabled"); dl.setAttribute("download", "");
-    $("dl-note").textContent = "Windows 10 ou 11. Arquivo .zip.";
+    enableDownload(cfg.downloadUrl);
+  } else if (cfg.repo) {
+    fetch("https://api.github.com/repos/" + cfg.repo + "/releases/latest")
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (rel) {
+        var a = rel && (rel.assets || []).find(function (x) { return /\.exe$/i.test(x.name); });
+        if (a) enableDownload(a.browser_download_url, (rel.tag_name || "").replace(/^v/, ""), a.size);
+      })
+      .catch(function () {});
   }
   if (cfg.whatsapp) {
     document.querySelectorAll(".plan-cta").forEach(function (a) {

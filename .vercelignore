@@ -11,3 +11,8 @@ Dockerfile
 docker-compose.yml
 Caddyfile
 GUIA_DAS_MELHORIAS.md
+installer
+launcher.py
+VERSION
+requirements-postgres.txt
+.github

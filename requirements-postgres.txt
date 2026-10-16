@@ -1,0 +1,2 @@
+# Opcional: só para usar PostgreSQL (DATABASE_URL) em vez do SQLite local
+psycopg[binary]>=3.2,<4.0
