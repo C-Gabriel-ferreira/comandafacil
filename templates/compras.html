@@ -1,0 +1,12 @@
+{% extends "base.html" %}{% from "_macros.html" import icon %}{% block title %}Lista de compras · {{ business_name }}{% endblock %}{% block content %}
+<div class="page-head"><div><h1>Lista de compras</h1><p class="muted" style="margin:.2rem 0 0">Produtos no estoque mínimo ou abaixo. A sugestão repõe até o dobro do mínimo.</p></div>
+  <div class="row"><button class="btn" type="button" onclick="window.print()">{{ icon('printer') }} Imprimir</button></div></div>
+<div class="card">
+{% if rows %}<div class="tblwrap"><table>
+  <tr><th>Produto</th><th>Categoria</th><th class="r">Em estoque</th><th class="r">Mínimo</th><th class="r">Comprar</th></tr>
+  {% for r in rows %}<tr><td>{{ r.name }}</td><td class="muted">{{ r.category }}</td><td class="r">{{ r.stock }}</td><td class="r">{{ r.stock_min }}</td><td class="r"><b>{{ r.buy }}</b></td></tr>{% endfor %}
+</table></div>
+{% else %}<p class="muted">Tudo certo: nenhum produto abaixo do estoque mínimo.</p>{% endif %}
+</div>
+<p class="muted print-only">Gerado pelo ComandaFácil · {{ VENDOR.name }}</p>
+{% endblock %}

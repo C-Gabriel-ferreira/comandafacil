@@ -41,9 +41,16 @@ DATA_DIR = Path(os.environ.get("COMANDAFACIL_DATA_DIR") or _default_data)
 DB_PATH = DATA_DIR / "comandas.db"
 BACKUP_DIR = DATA_DIR / "backups"
 
-SCHEMA_VERSION = 1
-# Migrações futuras: {2: "ALTER TABLE ...;", 3: "..."} — rodam em ordem, com backup antes.
-MIGRATIONS: dict[int, str] = {}
+SCHEMA_VERSION = 2
+# Migrações: {versão: "SQL;"} — rodam em ordem, com backup antes.
+MIGRATIONS: dict[int, str] = {
+    2: """
+    ALTER TABLE order_items ADD COLUMN kitchen_status TEXT NOT NULL DEFAULT 'novo';
+    ALTER TABLE order_items ADD COLUMN sent_at TEXT;
+    ALTER TABLE order_items ADD COLUMN ready_at TEXT;
+    ALTER TABLE orders ADD COLUMN bill_requested_at TEXT;
+    """,
+}
 
 DEFAULT_SETTINGS = {
     "business_name": "ComandaFácil",
@@ -51,6 +58,14 @@ DEFAULT_SETTINGS = {
     "service_pct": "10",
     "service_auto_mesa": "0",
     "footer_message": "Obrigado pela preferência!",
+}
+
+# Identidade e suporte do fornecedor do sistema (aparece no rodapé, no cupom e no botão Suporte).
+VENDOR = {
+    "name": "HelpTech",
+    "phone": "(94) 99101-6248",
+    "whatsapp": "5594991016248",
+    "email": "helptechcanaa@gmail.com",
 }
 
 
@@ -242,7 +257,8 @@ CREATE TABLE orders (
     closed_at TEXT, closed_by INTEGER,
     subtotal_cents INTEGER, service_cents INTEGER, total_cents INTEGER,
     cancelled_at TEXT, cancelled_by INTEGER, cancel_reason TEXT,
-    merged_into INTEGER
+    merged_into INTEGER,
+    bill_requested_at TEXT
 );
 CREATE UNIQUE INDEX idx_one_open_per_table ON orders(table_id)
     WHERE status = 'aberta' AND table_id IS NOT NULL;
@@ -255,7 +271,9 @@ CREATE TABLE order_items (
     unit_price_cents INTEGER NOT NULL,
     quantity INTEGER NOT NULL CHECK(quantity > 0),
     note TEXT NOT NULL DEFAULT '',
-    created_at TEXT
+    created_at TEXT,
+    kitchen_status TEXT NOT NULL DEFAULT 'novo',
+    sent_at TEXT, ready_at TEXT
 );
 CREATE INDEX idx_items_order ON order_items(order_id);
 CREATE TABLE payments (

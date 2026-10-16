@@ -1,0 +1,28 @@
+{% extends "base.html" %}{% from "_macros.html" import fields, icon %}{% block title %}Cozinha · {{ business_name }}{% endblock %}{% block content %}
+<div class="page-head"><div><h1>Cozinha</h1><p class="muted" style="margin:.2rem 0 0">Pedidos enviados pelos garçons. A tela se atualiza sozinha a cada 10 segundos.</p></div>
+  <div class="row"><span class="badge dot ok" id="kds-live">Ao vivo</span><button class="btn sm" type="button" id="kds-full">Tela cheia</button></div></div>
+{% if not tickets %}<div class="card empty-state">{{ icon('flame') }}<div><b>Nenhum pedido na fila.</b><br><span class="muted">Quando o garçom tocar em “Enviar à cozinha”, o pedido aparece aqui.</span></div></div>{% endif %}
+<div class="kds">
+{% for t in tickets %}
+  {% set m = minutes_since(t.since) %}
+  <article class="tk {{ t.state }} {{ 'late' if t.state != 'pronto' and m >= 20 else ('warn' if t.state != 'pronto' and m >= 10) }}">
+    <header><strong>{{ order_title(t) }}</strong>
+      <span class="tk-time" data-min="{{ m }}"></span></header>
+    <ul>
+    {% for i in t['items'] %}<li class="{{ i.kitchen_status }}"><b>{{ i.quantity }}x</b> <span>{{ i.product_name }}{% if i.note %}<em>↳ {{ i.note }}</em>{% endif %}</span></li>{% endfor %}
+    </ul>
+    <footer>
+      {% if t.state == 'enviado' %}
+        <form method="post" action="{{ url_for('main.cozinha_acao', order_id=t.order_id, step='iniciar') }}">{{ fields() }}<button class="btn">Iniciar preparo</button></form>
+      {% endif %}
+      {% if t.state != 'pronto' %}
+        <form method="post" action="{{ url_for('main.cozinha_acao', order_id=t.order_id, step='pronto') }}">{{ fields() }}<button class="btn pri">Pronto</button></form>
+      {% else %}
+        <span class="badge dot info">Aguardando garçom</span>
+        <form method="post" action="{{ url_for('main.cozinha_acao', order_id=t.order_id, step='entregue') }}">{{ fields() }}<button class="btn">Entregue</button></form>
+      {% endif %}
+    </footer>
+  </article>
+{% endfor %}
+</div>
+{% endblock %}

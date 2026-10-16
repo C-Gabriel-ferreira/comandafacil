@@ -8,13 +8,13 @@
 </div>
 {% if low_stock %}<div class="alert">{{ icon('alert') }}<div><b>Estoque baixo:</b>
   {% for p in low_stock[:6] %}{{ p.name }} ({{ p.stock }}){{ ', ' if not loop.last }}{% endfor %}{% if low_stock|length>6 %} e mais {{ low_stock|length-6 }}{% endif %}
-  {% if is_manager() %} · <a href="{{ url_for('catalog.produtos') }}">repor estoque</a>{% endif %}</div></div>{% endif %}
+  {% if is_manager() %} · <a href="{{ url_for('catalog.produtos') }}">repor estoque</a> · <a href="{{ url_for('catalog.compras') }}">lista de compras</a>{% endif %}</div></div>{% endif %}
 
 <div class="card"><h2>Mesas</h2>
   <div class="mesas">
   {% for t in tables %}
     {% if t.order_id %}
-      <a class="mesa busy" href="{{ url_for('main.comanda', order_id=t.order_id) }}"><span class="badge dot warn">Ocupada</span><strong>{{ t.name }}</strong>
+      <a class="mesa busy {{ 'bill' if t.bill_requested_at }}" href="{{ url_for('main.comanda', order_id=t.order_id) }}">{% if t.bill_requested_at %}<span class="badge dot ok">Pediu a conta</span>{% else %}<span class="badge dot warn">Ocupada</span>{% endif %}{% if t.order_id in ready %}<span class="badge dot info ready">Pedido pronto</span>{% endif %}<strong>{{ t.name }}</strong>
         <small>{{ t.item_count }} item(ns) · <span data-min="{{ minutes_since(t.opened_at) }}"></span></small><div class="tot">{{ t.subtotal|brl }}</div></a>
     {% else %}
       <form method="post" action="{{ url_for('main.abrir_mesa', table_id=t.id) }}">{{ fields() }}

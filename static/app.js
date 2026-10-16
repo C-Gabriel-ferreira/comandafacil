@@ -144,3 +144,15 @@
     });
   }
 })();
+
+// ---------- tela da cozinha: atualização automática e tela cheia ----------
+(function () {
+  const kds = document.querySelector(".kds, .empty-state");
+  if (!document.getElementById("kds-live")) return;
+  setInterval(() => { if (!document.hidden) location.reload(); }, 10000);
+  const full = document.getElementById("kds-full");
+  if (full) full.addEventListener("click", () => {
+    document.body.classList.toggle("kds-full");
+    if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen && document.documentElement.requestFullscreen();
+  });
+})();

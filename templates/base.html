@@ -14,11 +14,13 @@
 {% set is_mesas_adm = ep == 'catalog.mesas' or ep.endswith('_mesa') %}
 {% set nav = [
   ('Operação', [
-    ('main.index','Mesas e comandas','grid', false, ep.startswith('main.')),
+    ('main.index','Mesas e comandas','grid', false, ep.startswith('main.') and ep != 'main.cozinha' and ep != 'main.cozinha_acao'),
+    ('main.cozinha','Cozinha','flame', false, ep.startswith('main.cozinha')),
     ('reports.historico','Histórico','clock', false, ep == 'reports.historico')]),
   ('Gestão', [
     ('reports.relatorios','Relatórios','chart', true, ep.startswith('reports.rel') or ep.startswith('reports.exp')),
-    ('catalog.produtos','Produtos e estoque','box', true, ep.startswith('catalog.') and not is_mesas_adm),
+    ('catalog.produtos','Produtos e estoque','box', true, ep.startswith('catalog.') and not is_mesas_adm and ep != 'catalog.compras'),
+    ('catalog.compras','Lista de compras','cart', true, ep == 'catalog.compras'),
     ('catalog.mesas','Gerenciar mesas','utensils', true, is_mesas_adm),
     ('admin.usuarios','Usuários','users', true, ep == 'admin.usuarios'),
     ('admin.auditoria','Auditoria','file', true, ep == 'admin.auditoria'),
@@ -28,7 +30,7 @@
 <div class="app">
   <aside class="sidebar" id="sidebar">
     <a class="brand" href="{{ url_for('main.index') }}"><span class="brand-mark">{{ icon('utensils') }}</span>
-      <span class="brand-name">{{ business_name }}<small class="muted">gestão de comandas</small></span></a>
+      <span class="brand-name">{{ business_name }}<small class="muted">por {{ VENDOR.name }}</small></span></a>
     {% for section, items in nav %}
       {% if section == 'Operação' or is_manager() %}<div class="sec">{{ section }}</div>
       {% for endpoint, label, ic, mgr, active in items %}{% if not mgr or is_manager() %}
@@ -39,6 +41,7 @@
     <div class="sb-foot">
       <div class="user"><span class="avatar">{{ current_user.display_name[:1]|upper }}</span>
         <span class="user-txt"><b>{{ current_user.display_name }}</b><small class="muted">{{ 'Gerente' if current_user.role=='gerente' else 'Garçom' }}</small></span></div>
+      <a class="nav-item support" href="https://wa.me/{{ VENDOR.whatsapp }}?text={{ ('Olá! Preciso de suporte no ComandaFácil – ' ~ business_name)|urlencode }}" target="_blank" rel="noopener" title="Suporte {{ VENDOR.name }}: {{ VENDOR.phone }}">{{ icon('help') }}<span class="lbl">Suporte {{ VENDOR.name }}</span></a>
       <a class="nav-item" href="{{ url_for('auth.change_password') }}" title="Alterar senha">{{ icon('key') }}<span class="lbl">Alterar senha</span></a>
       <form method="post" action="{{ url_for('auth.logout') }}">{{ fields() }}
         <button class="nav-item" type="submit" title="Sair">{{ icon('logout') }}<span class="lbl">Sair</span></button></form>

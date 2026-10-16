@@ -30,7 +30,7 @@ def index():
     sub = ("(SELECT COALESCE(SUM(quantity),0) FROM order_items WHERE order_id=o.id) AS item_count, "
            "(SELECT COALESCE(SUM(unit_price_cents*quantity),0) FROM order_items WHERE order_id=o.id) AS subtotal")
     tables = conn.execute(
-        f"SELECT t.*, o.id AS order_id, o.created_at AS opened_at, {sub} FROM tables t "
+        f"SELECT t.*, o.id AS order_id, o.created_at AS opened_at, o.bill_requested_at, {sub} FROM tables t "
         "LEFT JOIN orders o ON o.table_id=t.id AND o.status='aberta' WHERE t.active=1 ORDER BY t.id").fetchall()
     others = conn.execute(
         f"SELECT o.*, NULL AS table_name, {sub} FROM orders o "
@@ -41,7 +41,7 @@ def index():
     return render_template(
         "index.html", tables=tables, others=others,
         open_count=sum(1 for t in tables if t["order_id"]) + len(others),
-        sales_today=row["v"], orders_today=row["n"], low_stock=sv.low_stock_products(conn))
+        sales_today=row["v"], orders_today=row["n"], low_stock=sv.low_stock_products(conn), ready=sv.ready_orders(conn))
 
 
 @bp.post("/mesa/<int:table_id>/abrir")
@@ -104,6 +104,8 @@ def comanda(order_id):
         "comanda.html", order=order, items=items, totals=totals, products=products,
         categories=sorted({p["category"] for p in products}), payments=payments,
         free_tables=free_tables, mergeable=mergeable, merged_from=merged_from,
+        KITCHEN=sv.KITCHEN_LABELS, new_items=sum(1 for i in items if i["kitchen_status"] == "novo"),
+        ready_items=sum(1 for i in items if i["kitchen_status"] == "pronto"),
         wa_text=wa_text, wa_phone=sv.phone_for_whatsapp(order["customer_phone"]),
         service_pct=int(get_setting(conn, "service_pct", "10") or 0))
 
@@ -225,3 +227,52 @@ def cupom(order_id):
         "cupom.html", order=order, items=sv.get_items(conn, order_id), totals=sv.order_totals(conn, order),
         payments=conn.execute("SELECT * FROM payments WHERE order_id=?", (order_id,)).fetchall(),
         phone=get_setting(conn, "business_phone"), footer=get_setting(conn, "footer_message"))
+
+
+# ------------------------------------------------------------------ cozinha
+@bp.post("/comanda/<int:order_id>/cozinha")
+@idempotent
+def enviar_cozinha(order_id):
+    conn = get_db()
+    n, err = _guard(sv.send_to_kitchen, conn, order_id)
+    if not err:
+        audit(conn, "enviar_cozinha", f"#{order_id}: {n} item(ns)")
+        flash(f"{n} item(ns) enviado(s) à cozinha.", "sucesso")
+    return _back(order_id)
+
+
+@bp.post("/comanda/<int:order_id>/entregue")
+def entregue(order_id):
+    _guard(sv.kitchen_step, get_db(), order_id, "entregue")
+    return _back(order_id)
+
+
+@bp.post("/comanda/<int:order_id>/conta")
+def pedir_conta(order_id):
+    _guard(sv.set_bill_requested, get_db(), order_id, request.form.get("on") == "1")
+    return _back(order_id)
+
+
+@bp.post("/comanda/<int:order_id>/reabrir")
+@idempotent
+def reabrir(order_id):
+    if not is_manager():
+        flash("Somente o gerente pode reabrir uma comanda.", "erro")
+        return _back(order_id)
+    conn = get_db()
+    _, err = _guard(sv.reopen_order, conn, order_id)
+    if not err:
+        audit(conn, "reabrir_comanda", f"#{order_id}")
+        flash("Comanda reaberta. Os pagamentos anteriores foram removidos.", "sucesso")
+    return _back(order_id)
+
+
+@bp.get("/cozinha")
+def cozinha():
+    return render_template("cozinha.html", tickets=sv.kitchen_tickets(get_db()))
+
+
+@bp.post("/cozinha/<int:order_id>/<step>")
+def cozinha_acao(order_id, step):
+    _guard(sv.kitchen_step, get_db(), order_id, step)
+    return redirect(url_for("main.cozinha"))

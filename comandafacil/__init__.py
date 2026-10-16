@@ -48,7 +48,7 @@ def create_app(data_dir=None):
     app.add_template_global(is_manager, "is_manager")
     app.add_template_global(order_title, "order_title")
     app.add_template_global(minutes_since, "minutes_since")
-    app.jinja_env.globals.update(KINDS=KINDS, STATUS_LABELS=STATUS_LABELS, PAYMENT_METHODS=PAYMENT_METHODS)
+    app.jinja_env.globals.update(VENDOR=dbm.VENDOR, KINDS=KINDS, STATUS_LABELS=STATUS_LABELS, PAYMENT_METHODS=PAYMENT_METHODS)
 
     @app.context_processor
     def _ctx():

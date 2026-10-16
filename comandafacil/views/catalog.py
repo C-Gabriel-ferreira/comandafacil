@@ -30,6 +30,11 @@ def _confirm(message, action, button, back):
 
 
 # ----------------------------------------------------------------- produtos
+@bp.get("/produtos/compras")
+def compras():
+    return render_template("compras.html", rows=sv.shopping_list(get_db()))
+
+
 @bp.route("/produtos")
 def produtos():
     conn = get_db()

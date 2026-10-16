@@ -121,7 +121,7 @@ def add_item(conn, order_id, product_id, qty, note="", user_id=None):
             _stock_move(conn, p["id"], -qty, "venda", order_id, user_id)
         same = conn.execute(
             "SELECT id, quantity FROM order_items WHERE order_id=? AND product_id=? "
-            "AND unit_price_cents=? AND note=?", (order_id, p["id"], p["price_cents"], note)).fetchone()
+            "AND unit_price_cents=? AND note=? AND kitchen_status='novo'", (order_id, p["id"], p["price_cents"], note)).fetchone()
         if same and same["quantity"] + qty <= MAX_QTY:
             conn.execute("UPDATE order_items SET quantity=quantity+? WHERE id=?", (qty, same["id"]))
         else:
@@ -283,6 +283,104 @@ def adjust_stock(conn, product_id, delta, reason, user_id=None):
 def low_stock_products(conn):
     return conn.execute(
         "SELECT * FROM products WHERE track_stock=1 AND stock <= stock_min ORDER BY stock, name").fetchall()
+
+
+# ------------------------------------------------------------------ cozinha
+KITCHEN_LABELS = {"novo": "Não enviado", "enviado": "Na fila", "preparando": "Preparando",
+                  "pronto": "Pronto", "servido": "Entregue"}
+
+
+def send_to_kitchen(conn, order_id):
+    """Envia à cozinha os itens ainda não enviados. Devolve quantos itens foram enviados."""
+    with transaction(conn):
+        order = get_order(conn, order_id)
+        if not order or order["status"] != "aberta":
+            raise BusinessError("Esta comanda não está aberta.")
+        cur = conn.execute("UPDATE order_items SET kitchen_status='enviado', sent_at=? "
+                           "WHERE order_id=? AND kitchen_status='novo'", (now(), order_id))
+        if cur.rowcount < 1:
+            raise BusinessError("Não há itens novos para enviar à cozinha.")
+        return cur.rowcount
+
+
+_KITCHEN_STEPS = {"iniciar": (("enviado",), "preparando"),
+                  "pronto": (("enviado", "preparando"), "pronto"),
+                  "entregue": (("pronto",), "servido")}
+
+
+def kitchen_step(conn, order_id, step):
+    if step not in _KITCHEN_STEPS:
+        raise BusinessError("Ação inválida.")
+    froms, to = _KITCHEN_STEPS[step]
+    marks = ",".join("?" * len(froms))
+    ready = ", ready_at=?" if to == "pronto" else ""
+    args = [to] + ([now()] if ready else []) + [order_id, *froms]
+    cur = conn.execute(f"UPDATE order_items SET kitchen_status=?{ready} "
+                       f"WHERE order_id=? AND kitchen_status IN ({marks})", args)
+    if cur.rowcount < 1:
+        raise BusinessError("Nada a atualizar nesse pedido.")
+
+
+def kitchen_tickets(conn):
+    """Pedidos em andamento na cozinha, do mais antigo para o mais novo."""
+    rows = conn.execute(
+        "SELECT i.*, o.kind, o.customer_name, o.status AS order_status, t.name AS table_name "
+        "FROM order_items i JOIN orders o ON o.id=i.order_id LEFT JOIN tables t ON t.id=o.table_id "
+        "WHERE o.status='aberta' AND i.kitchen_status IN ('enviado','preparando','pronto') "
+        "ORDER BY i.sent_at, i.id").fetchall()
+    tickets = {}
+    for r in rows:
+        t = tickets.setdefault(r["order_id"], {
+            "order_id": r["order_id"], "id": r["order_id"], "kind": r["kind"],
+            "customer_name": r["customer_name"], "table_name": r["table_name"], "items": [],
+            "since": r["sent_at"]})
+        t["items"].append(r)
+        if r["kitchen_status"] != "pronto" and (t["since"] is None or (r["sent_at"] or "") < t["since"]):
+            t["since"] = r["sent_at"]
+    out = list(tickets.values())
+    for t in out:
+        sts = {i["kitchen_status"] for i in t["items"]}
+        t["state"] = "pronto" if sts == {"pronto"} else ("preparando" if "preparando" in sts else "enviado")
+    order = {"enviado": 0, "preparando": 1, "pronto": 2}
+    out.sort(key=lambda t: (order[t["state"]], t["since"] or ""))
+    return out
+
+
+def ready_orders(conn):
+    """Ids das comandas com itens prontos aguardando entrega no salão."""
+    return {r[0] for r in conn.execute(
+        "SELECT DISTINCT order_id FROM order_items WHERE kitchen_status='pronto'")}
+
+
+# -------------------------------------------------- pedir a conta / reabrir
+def set_bill_requested(conn, order_id, flag):
+    cur = conn.execute("UPDATE orders SET bill_requested_at=? WHERE id=? AND status='aberta'",
+                       (now() if flag else None, order_id))
+    if cur.rowcount != 1:
+        raise BusinessError("Esta comanda não está aberta.")
+
+
+def reopen_order(conn, order_id):
+    """Reabre uma comanda fechada (o cliente quer continuar pedindo). Remove os pagamentos."""
+    with transaction(conn):
+        order = get_order(conn, order_id)
+        if not order or order["status"] != "fechada":
+            raise BusinessError("Só é possível reabrir uma comanda fechada.")
+        if order["table_id"] and open_order_for_table(conn, order["table_id"]):
+            raise BusinessError("A mesa já tem outra comanda aberta.")
+        conn.execute("DELETE FROM payments WHERE order_id=?", (order_id,))
+        conn.execute("UPDATE orders SET status='aberta', closed_at=NULL, closed_by=NULL, subtotal_cents=NULL, "
+                     "service_cents=NULL, total_cents=NULL, bill_requested_at=NULL WHERE id=?", (order_id,))
+
+
+def shopping_list(conn):
+    """Itens abaixo do mínimo, com sugestão de compra (repor até o dobro do mínimo)."""
+    rows = []
+    for p in low_stock_products(conn):
+        target = max(p["stock_min"] * 2, p["stock_min"] + 1)
+        rows.append({"id": p["id"], "name": p["name"], "category": p["category"], "stock": p["stock"],
+                     "stock_min": p["stock_min"], "buy": target - p["stock"]})
+    return rows
 
 
 # ----------------------------------------------------------------- WhatsApp

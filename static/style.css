@@ -178,3 +178,32 @@ td small{display:block}
 }
 .cols>*{min-width:0}td.r{white-space:nowrap}
 .auth-wrap>div{width:min(420px,100%)}.auth-card{width:100%}
+
+/* ---------- HelpTech: suporte, cozinha, conta ---------- */
+.nav-item.support{color:var(--brand)}
+.vendor{font-size:.8rem;margin:1.2rem 0 0;text-align:center;line-height:1.5}
+.btn.kitchen{background:var(--brand-soft);color:var(--brand);border-color:color-mix(in srgb,var(--brand) 40%,transparent)}
+.badge.kb{font-size:.68rem;vertical-align:middle}
+.badge.kb.novo{background:var(--surface-2);color:var(--muted)}
+.badge.kb.enviado{background:var(--warn-soft);color:var(--warn)}
+.badge.kb.preparando{background:var(--info-soft);color:var(--info)}
+.badge.kb.pronto{background:var(--ok-soft);color:var(--ok)}
+.badge.kb.servido{background:var(--surface-2);color:var(--muted)}
+.mesa.bill{background:linear-gradient(160deg,var(--ok-soft),var(--surface) 70%)}.mesa.bill::before{background:var(--ok)}
+.mesa .badge.ready{margin-left:.3rem}
+.empty-state{display:flex;gap:1rem;align-items:center;padding:1.6rem}.empty-state .ic{width:2.2rem;height:2.2rem;color:var(--brand)}
+.kds{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1rem;align-items:start}
+.tk{background:var(--surface);border:1px solid var(--line);border-top:6px solid var(--warn);border-radius:var(--r);box-shadow:var(--shadow-sm);padding:1rem}
+.tk.preparando{border-top-color:var(--info)}.tk.pronto{border-top-color:var(--ok)}
+.tk.warn{border-top-color:#e08a00}.tk.late{border-top-color:var(--err);box-shadow:0 0 0 2px color-mix(in srgb,var(--err) 30%,transparent)}
+.tk header{display:flex;justify-content:space-between;gap:.6rem;align-items:baseline;margin-bottom:.6rem}
+.tk header strong{font-size:1.15rem}.tk-time{font-weight:700;font-variant-numeric:tabular-nums;color:var(--muted)}
+.tk.late .tk-time{color:var(--err)}
+.tk ul{list-style:none;margin:0 0 .9rem;padding:0;display:grid;gap:.45rem}
+.tk li{display:flex;gap:.5rem;font-size:1.05rem}.tk li b{min-width:2.2rem;color:var(--brand)}
+.tk li em{display:block;font-style:normal;font-size:.85rem;color:var(--warn)}
+.tk li.pronto{opacity:.55;text-decoration:line-through}
+.tk footer{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}.tk footer form{display:contents}
+.print-only{display:none}
+@media print{.sidebar,.topbar,.btn,.print-only{display:none}.print-only{display:block}}
+body.kds-full .sidebar,body.kds-full .topbar{display:none}body.kds-full .app{display:block}

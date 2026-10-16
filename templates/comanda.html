@@ -26,7 +26,7 @@
     {% if items %}<div class="tblwrap"><table>
       <tr><th>Item</th><th class="r">Qtd</th><th class="r">Valor</th><th></th></tr>
       {% for it in items %}<tr>
-        <td>{{ it.product_name }}{% if it.note %}<div class="item-note">↳ {{ it.note }}</div>{% endif %}<small class="muted">{{ it.unit_price_cents|brl }} cada</small></td>
+        <td>{{ it.product_name }} {% if it.kitchen_status != 'novo' or open %}<span class="badge kb {{ it.kitchen_status }}">{{ KITCHEN[it.kitchen_status] }}</span>{% endif %}{% if it.note %}<div class="item-note">↳ {{ it.note }}</div>{% endif %}<small class="muted">{{ it.unit_price_cents|brl }} cada</small></td>
         <td class="r">{% if open %}<form class="qty" method="post" action="{{ url_for('main.alterar_qtd', item_id=it.id) }}">{{ fields() }}
             <button name="delta" value="-1" title="Diminuir">−</button><b>{{ it.quantity }}</b><button name="delta" value="1" title="Aumentar">+</button></form>{% else %}{{ it.quantity }}{% endif %}</td>
         <td class="r">{{ (it.unit_price_cents * it.quantity)|brl }}</td>
@@ -50,14 +50,19 @@
   </div>
 
   {% if open %}<div class="card"><div class="row">
+    {% if new_items %}<form method="post" action="{{ url_for('main.enviar_cozinha', order_id=order.id) }}">{{ fields() }}<button class="btn kitchen" type="submit">{{ icon('flame') }} Enviar à cozinha ({{ new_items }})</button></form>{% endif %}
+    {% if ready_items %}<form method="post" action="{{ url_for('main.entregue', order_id=order.id) }}">{{ fields() }}<button class="btn" type="submit">Marcar como entregue</button></form>{% endif %}
+    {% if order.kind == 'mesa' %}<form method="post" action="{{ url_for('main.pedir_conta', order_id=order.id) }}">{{ fields() }}
+      <button class="btn" name="on" value="{{ 0 if order.bill_requested_at else 1 }}" type="submit">{{ icon('bell') }} {{ 'Cancelar pedido de conta' if order.bill_requested_at else 'Cliente pediu a conta' }}</button></form>{% endif %}
     <button class="btn pri" type="button" data-open="dlg-pay" {{ 'disabled' if not items }}>Fechar conta</button>
     <button class="btn" type="button" data-open="dlg-split" {{ 'disabled' if not items }}>Dividir conta</button>
     {% if order.kind == 'mesa' %}<button class="btn" type="button" data-open="dlg-transfer">Transferir mesa</button>
       {% if mergeable %}<button class="btn" type="button" data-open="dlg-merge">Juntar mesas</button>{% endif %}{% endif %}
     {% if not items or is_manager() %}<button class="btn danger" type="button" data-open="dlg-cancel">Cancelar comanda</button>{% endif %}
   </div></div>
-  {% elif order.status == 'fechada' and is_manager() %}<div class="card">
-    <button class="btn danger" type="button" data-open="dlg-cancel">Estornar venda</button></div>{% endif %}
+  {% elif order.status == 'fechada' and is_manager() %}<div class="card"><div class="row">
+    <form method="post" action="{{ url_for('main.reabrir', order_id=order.id) }}">{{ fields() }}<button class="btn" type="submit">Reabrir comanda</button></form>
+    <button class="btn danger" type="button" data-open="dlg-cancel">Estornar venda</button></div></div>{% endif %}
 </section>
 
 {% if open %}

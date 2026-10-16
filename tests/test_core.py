@@ -131,6 +131,70 @@ class ServiceTests(unittest.TestCase):
         c.close()
 
 
+class KitchenAndBillTests(ServiceTests):
+    def test_kitchen_flow(self):
+        oid = self.order_with((5, 1), (1, 2))
+        with self.assertRaises(sv.BusinessError):
+            sv.kitchen_step(self.conn, oid, "pronto")  # nada enviado ainda
+        self.assertEqual(sv.send_to_kitchen(self.conn, oid), 2)
+        with self.assertRaises(sv.BusinessError):
+            sv.send_to_kitchen(self.conn, oid)  # nada novo
+        t = sv.kitchen_tickets(self.conn)
+        self.assertEqual((len(t), t[0]["state"]), (1, "enviado"))
+        sv.kitchen_step(self.conn, oid, "iniciar")
+        self.assertEqual(sv.kitchen_tickets(self.conn)[0]["state"], "preparando")
+        # item novo depois do envio não se mistura com o já enviado
+        sv.add_item(self.conn, oid, 5, 1)
+        self.assertEqual(len(sv.get_items(self.conn, oid)), 3)
+        sv.send_to_kitchen(self.conn, oid)
+        sv.kitchen_step(self.conn, oid, "pronto")
+        self.assertEqual(sv.kitchen_tickets(self.conn)[0]["state"], "pronto")
+        self.assertIn(oid, sv.ready_orders(self.conn))
+        sv.kitchen_step(self.conn, oid, "entregue")
+        self.assertEqual(sv.kitchen_tickets(self.conn), [])
+        self.assertNotIn(oid, sv.ready_orders(self.conn))
+
+    def test_bill_request_and_reopen(self):
+        oid = self.order_with((5, 1))
+        sv.set_bill_requested(self.conn, oid, True)
+        self.assertIsNotNone(sv.get_order(self.conn, oid)["bill_requested_at"])
+        sv.close_order(self.conn, oid, [("Pix", 2200)])
+        with self.assertRaises(sv.BusinessError):
+            sv.set_bill_requested(self.conn, oid, True)  # já fechada
+        sv.reopen_order(self.conn, oid)
+        o = sv.get_order(self.conn, oid)
+        self.assertEqual((o["status"], o["total_cents"], o["bill_requested_at"]), ("aberta", None, None))
+        self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM payments WHERE order_id=?", (oid,)).fetchone()[0], 0)
+        sv.close_order(self.conn, oid, [("Pix", 2200)])  # pode fechar de novo
+        other, _ = sv.open_order(self.conn, "mesa", 1)  # mesa ocupada: não reabre
+        with self.assertRaises(sv.BusinessError):
+            sv.reopen_order(self.conn, oid)
+
+    def test_shopping_list(self):
+        self.conn.execute("UPDATE products SET track_stock=1, stock=2, stock_min=5 WHERE id=1")
+        rows = sv.shopping_list(self.conn)
+        self.assertEqual([(r["id"], r["buy"]) for r in rows], [(1, 8)])  # repõe até 10
+
+
+class V1UpgradeTests(unittest.TestCase):
+    def test_v1_database_gets_kitchen_columns(self):
+        d = tempfile.mkdtemp()
+        dbm.configure(d)
+        dbm.init_db()
+        c = dbm.connect()
+        c.executescript("""ALTER TABLE order_items DROP COLUMN kitchen_status; ALTER TABLE order_items DROP COLUMN sent_at;
+            ALTER TABLE order_items DROP COLUMN ready_at; ALTER TABLE orders DROP COLUMN bill_requested_at;
+            PRAGMA user_version=1;""")
+        c.close()
+        dbm.init_db()  # migra v1 -> v2 com backup
+        c = dbm.connect()
+        self.assertEqual(c.execute("PRAGMA user_version").fetchone()[0], 2)
+        c.execute("SELECT kitchen_status, sent_at, ready_at FROM order_items")
+        c.execute("SELECT bill_requested_at FROM orders")
+        self.assertTrue(list((Path(d) / "backups").glob("*pre_migracao.db")))
+        c.close()
+
+
 class LegacyMigrationTests(unittest.TestCase):
     def test_old_float_database_is_converted_to_cents(self):
         d = tempfile.mkdtemp()
@@ -220,6 +284,24 @@ class HttpFlowTests(unittest.TestCase):
         conn = dbm.connect()
         self.assertEqual(conn.execute("SELECT status FROM orders WHERE id=?", (oid,)).fetchone()[0], "fechada")
         conn.close()
+
+    def test_kitchen_and_support_pages(self):
+        self.login_manager()
+        r = self.post("/mesa/2/abrir")
+        oid = int(r.headers["Location"].rsplit("/", 1)[1])
+        page = f"/comanda/{oid}"
+        self.post(f"{page}/adicionar", page, product_id=5, quantity=1)
+        self.assertIn("Enviar à cozinha", self.c.get(page).get_data(as_text=True))
+        self.post(f"{page}/cozinha", page)
+        html = self.c.get("/cozinha").get_data(as_text=True)
+        self.assertIn("Hambúrguer", html)
+        self.post(f"/cozinha/{oid}/pronto", "/cozinha")
+        self.assertIn("Pedido pronto", self.c.get("/").get_data(as_text=True))
+        self.post(f"{page}/conta", page, on="1")
+        self.assertIn("Pediu a conta", self.c.get("/").get_data(as_text=True))
+        self.assertIn("HelpTech", self.c.get("/").get_data(as_text=True))
+        self.assertEqual(self.c.get("/produtos/compras").status_code, 200)
+        self.assertIn("HelpTech", self.c.get(f"{page}/cupom").get_data(as_text=True))
 
     def test_healthz_is_public(self):
         r = self.c.get("/healthz")

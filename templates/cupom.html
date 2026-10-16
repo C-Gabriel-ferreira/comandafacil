@@ -25,4 +25,5 @@ h1{font-size:15px;text-align:center;margin:0}.c{text-align:center}hr{border:0;bo
 <div class="r b"><span>TOTAL</span><span>{{ totals.total|brl }}</span></div>
 {% if payments %}<hr>{% for p in payments %}<div class="r"><span>{{ p.method }}</span><span>{{ p.amount_cents|brl }}</span></div>{% endfor %}{% endif %}
 <hr><div class="c">{{ footer }}</div>
+<div class="c" style="font-size:10px;margin-top:6px">ComandaFácil · {{ VENDOR.name }} · {{ VENDOR.phone }}</div>
 </body></html>
