@@ -1,0 +1,43 @@
+{% extends "base.html" %}{% from "_macros.html" import fields, icon %}{% block content %}
+<div class="page-head"><div><h1>Mesas e comandas</h1><p class="muted" style="margin:.2rem 0 0">Toque em uma mesa livre para abrir a comanda.</p></div>
+  <button class="btn pri" data-open="dlg-nova" type="button">{{ icon('plus') }} Balcão / Delivery</button></div>
+
+<div class="stats">
+  <div class="stat"><span class="chip-ic">{{ icon('receipt') }}</span><div><b>{{ open_count }}</b><span>comandas abertas</span></div></div>
+  {% if is_manager() %}<div class="stat"><span class="chip-ic">{{ icon('wallet') }}</span><div><b>{{ sales_today|brl }}</b><span>vendas hoje · {{ orders_today }} comandas</span></div></div>{% endif %}
+</div>
+{% if low_stock %}<div class="alert">{{ icon('alert') }}<div><b>Estoque baixo:</b>
+  {% for p in low_stock[:6] %}{{ p.name }} ({{ p.stock }}){{ ', ' if not loop.last }}{% endfor %}{% if low_stock|length>6 %} e mais {{ low_stock|length-6 }}{% endif %}
+  {% if is_manager() %} · <a href="{{ url_for('catalog.produtos') }}">repor estoque</a>{% endif %}</div></div>{% endif %}
+
+<div class="card"><h2>Mesas</h2>
+  <div class="mesas">
+  {% for t in tables %}
+    {% if t.order_id %}
+      <a class="mesa busy" href="{{ url_for('main.comanda', order_id=t.order_id) }}"><span class="badge dot warn">Ocupada</span><strong>{{ t.name }}</strong>
+        <small>{{ t.item_count }} item(ns) · <span data-min="{{ minutes_since(t.opened_at) }}"></span></small><div class="tot">{{ t.subtotal|brl }}</div></a>
+    {% else %}
+      <form method="post" action="{{ url_for('main.abrir_mesa', table_id=t.id) }}">{{ fields() }}
+        <button class="mesa" type="submit"><span class="badge dot ok">Livre</span><strong>{{ t.name }}</strong><small>Toque para abrir comanda</small></button></form>
+    {% endif %}
+  {% endfor %}
+  </div>
+  {% if not tables %}<p class="muted">Nenhuma mesa ativa. {% if is_manager() %}<a href="{{ url_for('catalog.mesas') }}">Cadastre mesas</a>.{% endif %}</p>{% endif %}
+</div>
+
+{% if others %}<div class="card"><h2>Balcão e delivery em andamento</h2><div class="mesas">
+  {% for o in others %}<a class="mesa busy" href="{{ url_for('main.comanda', order_id=o.id) }}">
+    <span class="badge dot {{ 'info' if o.kind=='delivery' else 'warn' }}">{{ KINDS[o.kind] }}</span><strong>{{ o.customer_name or ('#' ~ o.id) }}</strong>
+    <small>{{ o.item_count }} item(ns) · <span data-min="{{ minutes_since(o.created_at) }}"></span></small><div class="tot">{{ o.subtotal|brl }}</div></a>{% endfor %}
+</div></div>{% endif %}
+
+<dialog id="dlg-nova"><h2>Nova comanda sem mesa</h2>
+<form method="post" action="{{ url_for('main.nova_comanda') }}">{{ fields() }}
+  <div class="field"><label>Tipo</label><select name="kind"><option value="balcao">Balcão (retirada)</option><option value="delivery">Delivery</option></select></div>
+  <div class="field"><label>Nome do cliente</label><input name="customer_name" maxlength="80"></div>
+  <div class="field"><label>Telefone / WhatsApp (com DDD)</label><input name="customer_phone" inputmode="tel" maxlength="20"></div>
+  <div class="field"><label>Endereço (obrigatório no delivery)</label><input name="address" maxlength="200"></div>
+  <div class="field"><label>Taxa de entrega (R$)</label><input name="delivery_fee" value="0,00" inputmode="decimal"></div>
+  <div class="row"><button class="btn pri" type="submit">Abrir comanda</button><button class="btn" type="button" data-close>Cancelar</button></div>
+</form></dialog>
+{% endblock %}

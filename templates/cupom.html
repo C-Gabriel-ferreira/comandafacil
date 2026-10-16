@@ -1,0 +1,28 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Cupom #{{ order.id }}</title>
+<style>
+@page{size:80mm auto;margin:3mm}
+body{font:12px/1.35 "Courier New",monospace;width:74mm;margin:0 auto;padding:6px;color:#000;background:#fff}
+h1{font-size:15px;text-align:center;margin:0}.c{text-align:center}hr{border:0;border-top:1px dashed #000;margin:6px 0}
+.r{display:flex;justify-content:space-between;gap:6px}.b{font-weight:700;font-size:14px}
+.no-print{margin:10px 0;text-align:center}.no-print a,.no-print button{font:14px sans-serif;padding:8px 14px;margin:0 3px;cursor:pointer}
+.note{padding-left:10px;font-size:11px}
+@media print{.no-print{display:none}}
+</style></head><body>
+<div class="no-print"><button onclick="window.print()">🖨 Imprimir</button> <a href="{{ url_for('main.comanda', order_id=order.id) }}">← Voltar</a></div>
+<h1>{{ business_name }}</h1>{% if phone %}<div class="c">{{ phone }}</div>{% endif %}
+<hr>
+<div class="r"><span>{{ order_title(order) }}</span><span>#{{ order.id }}</span></div>
+<div>{{ (order.closed_at or order.created_at)|dt }}</div>
+{% if order.status != 'fechada' %}<div class="c"><b>*** {{ 'CONFERÊNCIA — NÃO É DOCUMENTO FISCAL' if order.status == 'aberta' else STATUS_LABELS[order.status]|upper }} ***</b></div>{% endif %}
+{% if order.kind == 'delivery' %}<div>Cliente: {{ order.customer_name }}<br>{{ order.address }}</div>{% endif %}
+<hr>
+{% for it in items %}<div class="r"><span>{{ it.quantity }}x {{ it.product_name }}</span><span>{{ (it.unit_price_cents*it.quantity)|brl }}</span></div>
+{% if it.note %}<div class="note">↳ {{ it.note }}</div>{% endif %}{% endfor %}
+<hr>
+<div class="r"><span>Subtotal</span><span>{{ totals.subtotal|brl }}</span></div>
+{% if totals.service %}<div class="r"><span>Serviço ({{ order.service_pct }}%)</span><span>{{ totals.service|brl }}</span></div>{% endif %}
+{% if totals.delivery %}<div class="r"><span>Entrega</span><span>{{ totals.delivery|brl }}</span></div>{% endif %}
+<div class="r b"><span>TOTAL</span><span>{{ totals.total|brl }}</span></div>
+{% if payments %}<hr>{% for p in payments %}<div class="r"><span>{{ p.method }}</span><span>{{ p.amount_cents|brl }}</span></div>{% endfor %}{% endif %}
+<hr><div class="c">{{ footer }}</div>
+</body></html>

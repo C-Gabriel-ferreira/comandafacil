@@ -1,0 +1,9 @@
+{% extends "base.html" %}{% from "_macros.html" import fields, icon %}{% block auth %}
+<div class="auth-card">
+  <div class="brand"><span class="brand-mark">{{ icon('utensils') }}</span><span class="brand-name">{{ business_name }}<small class="muted">gestão de comandas</small></span></div>
+  <h1 style="font-size:1.4rem">Bem-vindo de volta</h1><p class="muted">Entre com seu usuário e senha para continuar.</p>
+  <form method="post" action="{{ url_for('auth.login', next=next) }}">{{ fields() }}
+    <div class="field"><label>Usuário</label><input name="username" autofocus autocomplete="username" required></div>
+    <div class="field"><label>Senha</label><input name="password" type="password" autocomplete="current-password" required></div>
+    <button class="btn pri" type="submit" style="width:100%">Entrar</button></form>
+</div>{% endblock %}

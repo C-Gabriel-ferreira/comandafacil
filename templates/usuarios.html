@@ -1,0 +1,16 @@
+{% extends "base.html" %}{% from "_macros.html" import fields %}{% block content %}
+<div class="card"><h2>Novo usuário</h2>
+<form method="post" action="{{ url_for('admin.adicionar_usuario') }}" class="row" style="align-items:end">{{ fields() }}
+  <div><label>Usuário</label><input name="username" required pattern="[A-Za-z0-9_.\-]{3,30}"></div>
+  <div><label>Nome</label><input name="display_name"></div>
+  <div><label>Senha (mín. 8)</label><input name="password" type="password" minlength="8" required autocomplete="new-password"></div>
+  <div><label>Perfil</label><select name="role"><option value="garcom">Garçom</option><option value="gerente">Gerente</option></select></div>
+  <button class="btn pri">Criar</button></form>
+<p class="muted"><small><b>Garçom:</b> mesas, comandas, fechamento, impressão, WhatsApp. <b>Gerente:</b> tudo, incluindo produtos, estoque, mesas, relatórios, estornos, usuários e auditoria.</small></p></div>
+<div class="card tblwrap"><table><tr><th>Usuário</th><th>Perfil</th><th>Ativo</th><th>Nova senha (opcional)</th><th></th></tr>
+{% for u in users %}<tr><form method="post" action="{{ url_for('admin.atualizar_usuario', uid=u.id) }}">
+<td>{{ fields() }}<b>{{ u.username }}</b><br><small class="muted">{{ u.display_name }}</small></td>
+<td><select name="role"><option value="garcom" {{ 'selected' if u.role=='garcom' }}>Garçom</option><option value="gerente" {{ 'selected' if u.role=='gerente' }}>Gerente</option></select></td>
+<td><select name="active"><option value="1" {{ 'selected' if u.active }}>Sim</option><option value="0" {{ 'selected' if not u.active }}>Não</option></select></td>
+<td><input name="password" type="password" minlength="8" autocomplete="new-password" placeholder="deixe vazio p/ manter"></td>
+<td class="r"><button class="btn sm">Salvar</button></td></form></tr>{% endfor %}</table></div>{% endblock %}

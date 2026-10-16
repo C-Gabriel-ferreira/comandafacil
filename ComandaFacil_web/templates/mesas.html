@@ -1,0 +1,14 @@
+{% extends "base.html" %}{% from "_macros.html" import fields %}{% block content %}
+<div class="card"><h2>Adicionar mesas</h2>
+<form method="post" action="{{ url_for('catalog.adicionar_mesa') }}" class="row" style="align-items:end">{{ fields() }}
+  <div><label>Nome (ex.: Varanda 1) — ou deixe vazio para numerar automaticamente</label><input name="name" maxlength="30" style="min-width:18rem"></div>
+  <div><label>Quantidade (se vazio)</label><input name="quantity" type="number" min="1" max="100" value="1" style="width:6rem"></div>
+  <button class="btn pri" type="submit">Adicionar</button></form></div>
+<div class="card tblwrap"><h2>Mesas</h2><table><tr><th>Nome</th><th>Situação</th><th></th></tr>
+{% for t in tables %}<tr><td><form method="post" action="{{ url_for('catalog.renomear_mesa', tid=t.id) }}" class="row" style="gap:.3rem">{{ fields() }}
+  <input name="name" value="{{ t.name }}" maxlength="30"><button class="btn sm">Renomear</button></form></td>
+  <td>{% if t.open_order %}<span class="badge warn">Ocupada</span>{% elif t.active %}<span class="badge ok">Livre</span>{% else %}<span class="badge">Desativada</span>{% endif %}</td>
+  <td class="r"><div class="row" style="justify-content:flex-end">
+   <form method="post" action="{{ url_for('catalog.alternar_mesa', tid=t.id) }}">{{ fields() }}<button class="btn sm">{{ 'Desativar' if t.active else 'Reativar' }}</button></form>
+   {% if not t.history %}<a class="btn sm danger" href="{{ url_for('catalog.excluir_mesa', tid=t.id) }}">Excluir</a>{% endif %}</div></td></tr>{% endfor %}
+</table></div>{% endblock %}

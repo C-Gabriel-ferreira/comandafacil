@@ -1,0 +1,3 @@
+{% extends "base.html" %}{% from "_macros.html" import fields %}{% block content %}
+<div class="card login"><h2>Confirmar ação</h2><p>{{ message }}</p>
+<form method="post" action="{{ action }}" class="row">{{ fields() }}<button class="btn danger" type="submit">{{ button }}</button><a class="btn" href="{{ back }}">Voltar</a></form></div>{% endblock %}

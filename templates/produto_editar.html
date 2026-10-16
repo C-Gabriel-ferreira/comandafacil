@@ -1,0 +1,10 @@
+{% extends "base.html" %}{% from "_macros.html" import fields %}{% block content %}
+<div class="card login"><h2>Editar produto</h2>
+<form method="post">{{ fields() }}
+<div class="field"><label>Nome</label><input name="name" value="{{ p.name }}" required maxlength="80"></div>
+<div class="field"><label>Categoria</label><input name="category" value="{{ p.category }}"></div>
+<div class="field"><label>Preço (R$)</label><input name="price" value="{{ p.price_cents|cents_input }}" required inputmode="decimal"></div>
+<div class="field"><label><input type="checkbox" name="track_stock" {{ 'checked' if p.track_stock }} style="width:auto"> Controlar estoque (atual: {{ p.stock }})</label></div>
+<div class="field"><label>Estoque mínimo (alerta)</label><input name="stock_min" type="number" min="0" value="{{ p.stock_min }}"></div>
+<p class="muted"><small>Para alterar a quantidade em estoque use “Ajustar” na lista, que registra a movimentação.</small></p>
+<button class="btn pri" type="submit">Salvar</button> <a class="btn" href="{{ url_for('catalog.produtos') }}">Cancelar</a></form></div>{% endblock %}

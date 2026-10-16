@@ -1,0 +1,6 @@
+{% extends "base.html" %}{% block content %}
+<div class="card"><div class="row sb"><h2>Auditoria</h2><form method="get" class="row"><input name="q" value="{{ q }}" placeholder="Buscar ação, usuário ou detalhe"><button class="btn sm">Buscar</button></form></div>
+<div class="tblwrap"><table><tr><th>Quando</th><th>Usuário</th><th>Ação</th><th>Detalhes</th></tr>
+{% for r in rows %}<tr><td>{{ r.ts|dt('%d/%m %H:%M:%S') }}</td><td>{{ r.user_name or '—' }}</td><td><span class="badge">{{ r.action }}</span></td><td>{{ r.details }}</td></tr>
+{% else %}<tr><td colspan="4" class="muted">Sem registros.</td></tr>{% endfor %}</table></div>
+<p class="muted"><small>Mostrando os 300 registros mais recentes.</small></p></div>{% endblock %}

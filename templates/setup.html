@@ -1,0 +1,12 @@
+{% extends "base.html" %}{% from "_macros.html" import fields, icon %}{% block auth %}
+<div class="auth-card">
+  <div class="brand"><span class="brand-mark">{{ icon('utensils') }}</span><span class="brand-name">ComandaFácil<small class="muted">primeiro acesso</small></span></div>
+  <h1 style="font-size:1.4rem">Crie a conta do gerente</h1>
+  <p class="muted">O gerente controla produtos, relatórios, usuários e cancelamentos. Os garçons são criados depois, em “Usuários”.</p>
+  <form method="post">{{ fields() }}
+    <div class="field"><label>Usuário</label><input name="username" autofocus required pattern="[A-Za-z0-9_.\-]{3,30}"></div>
+    <div class="field"><label>Seu nome</label><input name="display_name"></div>
+    <div class="field"><label>Senha (mín. 8 caracteres)</label><input name="password" type="password" minlength="8" required autocomplete="new-password"></div>
+    <div class="field"><label>Repita a senha</label><input name="password2" type="password" minlength="8" required autocomplete="new-password"></div>
+    <button class="btn pri" type="submit" style="width:100%">Criar conta e entrar</button></form>
+</div>{% endblock %}

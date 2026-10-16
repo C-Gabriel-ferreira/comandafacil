@@ -1,0 +1,11 @@
+{% macro fields() -%}
+<input type="hidden" name="_csrf" value="{{ csrf_token() }}"><input type="hidden" name="_rid" value="{{ new_rid() }}">
+{%- endmacro %}
+{% macro icon(name, cls='') -%}<svg class="ic {{ cls }}" aria-hidden="true"><use href="#i-{{ name }}"/></svg>{%- endmacro %}
+{% macro status_badge(o) -%}
+<span class="badge dot {{ {'aberta':'warn','fechada':'ok','cancelada':'err','juntada':'info'}.get(o.status,'') }}">{{ STATUS_LABELS[o.status] }}</span>
+{%- endmacro %}
+{% macro theme_toggle(extra='') -%}
+<button type="button" class="btn icon {{ extra }} theme-toggle" data-theme-toggle title="Alternar tema claro/escuro" aria-label="Alternar tema claro/escuro">
+<svg class="ic ic-sun" aria-hidden="true"><use href="#i-sun"/></svg><svg class="ic ic-moon" aria-hidden="true"><use href="#i-moon"/></svg></button>
+{%- endmacro %}

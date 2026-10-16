@@ -1,0 +1,7 @@
+{% extends "base.html" %}{% from "_macros.html" import fields %}{% block content %}
+<div class="card login"><h2>Alterar minha senha</h2>
+<form method="post">{{ fields() }}
+<div class="field"><label>Senha atual</label><input name="old" type="password" required autocomplete="current-password"></div>
+<div class="field"><label>Nova senha</label><input name="new" type="password" minlength="8" required autocomplete="new-password"></div>
+<div class="field"><label>Repita a nova senha</label><input name="new2" type="password" minlength="8" required autocomplete="new-password"></div>
+<button class="btn pri" type="submit">Salvar</button> <a class="btn" href="{{ url_for('main.index') }}">Cancelar</a></form></div>{% endblock %}

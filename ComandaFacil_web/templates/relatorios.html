@@ -1,0 +1,30 @@
+{% extends "base.html" %}{% block content %}
+{% macro bars(rows, fmt='brl', suffix='') %}{% for x in rows %}<div class="bar"><span class="lb" title="{{ x.label }}">
+{{ KINDS.get(x.label, x.label) if fmt=='kind' else x.label }}</span><span><i style="width:{{ x.pct }}%"></i></span>
+<span>{% if suffix=='un' %}{{ x.n }} un.{% else %}{{ x.value|brl }}{% endif %}</span></div>{% else %}<p class="muted">Sem dados no período.</p>{% endfor %}{% endmacro %}
+<div class="card"><h2>Relatórios de vendas</h2>
+<form method="get" class="row" style="align-items:end">
+  <div class="row" style="gap:.3rem">{% for v,l in [('hoje','Hoje'),('7d','7 dias'),('30d','30 dias'),('mes','Este mês')] %}
+    <button class="btn sm {{ 'pri' if periodo==v }}" name="periodo" value="{{ v }}">{{ l }}</button>{% endfor %}</div>
+  <input type="hidden" name="periodo" value="custom">
+  <div><label>De</label><input type="date" name="inicio" value="{{ start }}"></div><div><label>Até</label><input type="date" name="fim" value="{{ end }}"></div>
+  <button class="btn sm">Aplicar período</button>
+  <a class="btn sm" href="{{ url_for('reports.exportar_csv', periodo='custom', inicio=start, fim=end) }}">⬇ Exportar CSV</a></form>
+<p class="muted">{{ start.strftime('%d/%m/%Y') }} a {{ end.strftime('%d/%m/%Y') }}</p></div>
+<div class="stats">
+  <div class="stat"><b>{{ r.total|brl }}</b><span>faturamento</span></div>
+  <div class="stat"><b>{{ r.orders }}</b><span>comandas fechadas</span></div>
+  <div class="stat"><b>{{ r.avg|brl }}</b><span>ticket médio</span></div>
+  <div class="stat"><b>{{ r.service|brl }}</b><span>taxa de serviço</span></div>
+  <div class="stat"><b>{{ r.delivery|brl }}</b><span>taxas de entrega</span></div>
+  <div class="stat"><b>{{ r.cancelled_n }}</b><span>canceladas/estornos{% if r.cancelled_value %} ({{ r.cancelled_value|brl }}){% endif %}</span></div>
+</div>
+<div class="grid g2">
+  <div class="card"><h3>Por forma de pagamento</h3>{{ bars(r.by_payment) }}</div>
+  <div class="card"><h3>Por tipo de comanda</h3>{{ bars(r.by_kind, 'kind') }}</div>
+  <div class="card"><h3>Produtos mais vendidos (unidades)</h3>{{ bars(r.top_products, 'brl', 'un') }}</div>
+  <div class="card"><h3>Faturamento por horário</h3>{{ bars(r.by_hour) }}</div>
+</div>
+<div class="card"><h3>Faturamento por dia</h3>
+{% for x in r.by_day %}<div class="bar"><span class="lb">{{ x.label[8:10] }}/{{ x.label[5:7] }}</span><span><i style="width:{{ x.pct }}%"></i></span><span>{{ x.value|brl }} <small class="muted">({{ x.n }})</small></span></div>
+{% else %}<p class="muted">Sem dados no período.</p>{% endfor %}</div>{% endblock %}

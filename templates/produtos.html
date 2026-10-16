@@ -1,0 +1,24 @@
+{% extends "base.html" %}{% from "_macros.html" import fields %}{% block content %}
+<div class="card"><h2>Novo produto</h2>
+<form method="post" action="{{ url_for('catalog.adicionar_produto') }}" class="row" style="align-items:end">{{ fields() }}
+  <div><label>Nome</label><input name="name" required maxlength="80"></div>
+  <div><label>Categoria</label><input name="category" list="cats" placeholder="Outros"><datalist id="cats">{% for c in categories %}<option value="{{ c }}">{% endfor %}</datalist></div>
+  <div><label>Preço (R$)</label><input name="price" required inputmode="decimal" style="width:7rem"></div>
+  <div><label><input type="checkbox" name="track_stock" style="width:auto"> Controlar estoque</label>
+    <input name="stock" type="number" min="0" placeholder="Qtd atual" style="width:7rem"> <input name="stock_min" type="number" min="0" placeholder="Mínimo" style="width:6rem"></div>
+  <button class="btn pri" type="submit">Cadastrar</button></form></div>
+<div class="card tblwrap"><h2>Catálogo</h2><table>
+<tr><th>Produto</th><th>Categoria</th><th class="r">Preço</th><th>Estoque</th><th>Status</th><th></th></tr>
+{% for p in products %}<tr>
+ <td>{{ p.name }}</td><td>{{ p.category }}</td><td class="r">{{ p.price_cents|brl }}</td>
+ <td>{% if p.track_stock %}
+   <span class="badge {{ 'err' if p.stock <= p.stock_min else 'ok' }}">{{ p.stock }}</span> <small class="muted">mín {{ p.stock_min }}</small>
+   <form method="post" action="{{ url_for('catalog.estoque', pid=p.id) }}" class="row" style="gap:.25rem;margin-top:.25rem">{{ fields() }}
+     <input name="delta" type="number" placeholder="+10 / -2" style="width:5.5rem"><input name="reason" placeholder="motivo" style="width:7rem"><button class="btn sm">Ajustar</button></form>
+   {% else %}<small class="muted">sem controle</small>{% endif %}</td>
+ <td><span class="badge {{ 'ok' if p.available else '' }}">{{ 'Ativo' if p.available else 'Inativo' }}</span></td>
+ <td class="r"><div class="row" style="justify-content:flex-end">
+   <a class="btn sm" href="{{ url_for('catalog.editar_produto', pid=p.id) }}">Editar</a>
+   <form method="post" action="{{ url_for('catalog.alternar_produto', pid=p.id) }}">{{ fields() }}<button class="btn sm">{{ 'Desativar' if p.available else 'Ativar' }}</button></form>
+   <a class="btn sm danger" href="{{ url_for('catalog.excluir_produto', pid=p.id) }}">Excluir</a></div></td></tr>{% endfor %}
+</table></div>{% endblock %}

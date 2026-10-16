@@ -1,0 +1,13 @@
+{% extends "base.html" %}{% from "_macros.html" import status_badge %}{% block content %}
+<div class="card"><h2>Histórico</h2>
+<form method="get" class="row" style="align-items:end">
+  <div><label>De</label><input type="date" name="inicio" value="{{ start }}"></div>
+  <div><label>Até</label><input type="date" name="fim" value="{{ end }}"></div>
+  <div><label>Situação</label><select name="status">{% for v,l in [('fechada','Fechadas'),('cancelada','Canceladas / estornadas'),('juntada','Juntadas')] %}<option value="{{ v }}" {{ 'selected' if v==status }}>{{ l }}</option>{% endfor %}</select></div>
+  <div><label>Tipo</label><select name="tipo"><option value="">Todos</option>{% for k,l in KINDS.items() %}<option value="{{ k }}" {{ 'selected' if k==kind }}>{{ l }}</option>{% endfor %}</select></div>
+  <button class="btn pri">Filtrar</button></form></div>
+<div class="card tblwrap"><table><tr><th>#</th><th>Quando</th><th>Comanda</th><th>Pagamento</th><th class="r">Total</th><th></th></tr>
+{% for o in orders %}<tr><td>{{ o.id }}</td><td>{{ (o.closed_at or o.cancelled_at or o.created_at)|dt }}</td><td>{{ order_title(o) }}{% if o.cancel_reason %}<br><small class="muted">{{ o.cancel_reason }}</small>{% endif %}</td>
+<td>{{ o.pays or '—' }}</td><td class="r">{{ (o.total_cents or 0)|brl }}</td><td class="r"><a class="btn sm" href="{{ url_for('main.comanda', order_id=o.id) }}">Abrir</a></td></tr>
+{% else %}<tr><td colspan="6" class="muted">Nada encontrado neste filtro.</td></tr>{% endfor %}</table>
+{% if orders|length >= 300 %}<p class="muted"><small>Mostrando as 300 mais recentes. Refine o período.</small></p>{% endif %}</div>{% endblock %}

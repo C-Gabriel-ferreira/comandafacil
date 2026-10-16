@@ -1,0 +1,4 @@
+{% extends "base.html" %}{% block content %}
+<div class="card"><h1>{{ error.code }} — {{ {400:'Requisição inválida',403:'Sem permissão',404:'Página não encontrada'}.get(error.code,'Erro') }}</h1>
+<p>{{ error.description if error.code!=404 else 'O endereço pedido não existe.' }}</p>
+<a class="btn" href="{{ url_for('main.index') }}">Voltar ao início</a></div>{% endblock %}

@@ -1,0 +1,16 @@
+{% extends "base.html" %}{% from "_macros.html" import fields %}{% block content %}
+<div class="card"><h2>Configurações</h2>
+<form method="post" class="stack" style="max-width:520px">{{ fields() }}
+<div class="field"><label>Nome do estabelecimento (cupom e mensagens)</label><input name="business_name" value="{{ s.business_name }}" maxlength="60"></div>
+<div class="field"><label>Telefone (cupom)</label><input name="business_phone" value="{{ s.business_phone }}" maxlength="30"></div>
+<div class="field"><label>Mensagem do rodapé do cupom</label><input name="footer_message" value="{{ s.footer_message }}" maxlength="120"></div>
+<div class="field"><label>Taxa de serviço (%)</label><input name="service_pct" type="number" min="0" max="30" value="{{ s.service_pct }}" style="width:7rem"></div>
+<div class="field"><label><input type="checkbox" name="service_auto_mesa" {{ 'checked' if s.service_auto_mesa=='1' }} style="width:auto"> Já ligar a taxa de serviço ao abrir comandas de mesa</label></div>
+<button class="btn pri">Salvar</button></form></div>
+<div class="card"><div class="row sb"><h2>Backups</h2>
+<form method="post" action="{{ url_for('admin.backup_agora') }}">{{ fields() }}<button class="btn pri">Fazer backup agora</button></form></div>
+<p class="muted"><small>Um backup automático é criado por dia (guarda os 14 últimos). Pasta de dados: <code>{{ data_dir }}</code></small></p>
+<table><tr><th>Arquivo</th><th>Quando</th><th class="r">Tamanho</th><th></th></tr>
+{% for b in backups %}<tr><td>{{ b.name }}</td><td>{{ b.when }}</td><td class="r">{{ b.size_kb }} KB</td><td class="r"><a class="btn sm" href="{{ url_for('admin.baixar_backup', name=b.name) }}">Baixar</a></td></tr>
+{% else %}<tr><td colspan="4" class="muted">Nenhum backup ainda.</td></tr>{% endfor %}</table>
+<p class="muted"><small>Para restaurar: feche o sistema e copie o arquivo escolhido para <code>comandas.db</code> na pasta de dados.</small></p></div>{% endblock %}

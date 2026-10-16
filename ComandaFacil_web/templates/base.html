@@ -1,0 +1,80 @@
+{% from "_macros.html" import fields, icon, theme_toggle %}<!doctype html>
+<html lang="pt-BR" data-theme="light"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f6f5f2">
+<title>{% block title %}{{ business_name }}{% endblock %}</title>
+<script>(function(){try{var t=localStorage.getItem('cf_theme');if(t!=='light'&&t!=='dark'){t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}document.documentElement.dataset.theme=t}catch(e){}})()</script>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"></head>
+<body>
+{% include "_icons.html" %}
+{% macro flashes() %}<div class="toasts" id="toasts">{% for cat, msg in get_flashed_messages(with_categories=true) %}<div class="flash {{ cat }}" role="status">{{ msg }}</div>{% endfor %}</div>{% endmacro %}
+
+{% if current_user %}
+{% set ep = request.endpoint or '' %}
+{% set is_mesas_adm = ep == 'catalog.mesas' or ep.endswith('_mesa') %}
+{% set nav = [
+  ('Operação', [
+    ('main.index','Mesas e comandas','grid', false, ep.startswith('main.')),
+    ('reports.historico','Histórico','clock', false, ep == 'reports.historico')]),
+  ('Gestão', [
+    ('reports.relatorios','Relatórios','chart', true, ep.startswith('reports.rel') or ep.startswith('reports.exp')),
+    ('catalog.produtos','Produtos e estoque','box', true, ep.startswith('catalog.') and not is_mesas_adm),
+    ('catalog.mesas','Gerenciar mesas','utensils', true, is_mesas_adm),
+    ('admin.usuarios','Usuários','users', true, ep == 'admin.usuarios'),
+    ('admin.auditoria','Auditoria','file', true, ep == 'admin.auditoria'),
+    ('admin.config','Configurações','sliders', true, ep.startswith('admin.config') or ep.startswith('admin.backup') or ep.startswith('admin.baixar'))])
+] %}
+{% set ns = namespace(label=business_name) %}
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <a class="brand" href="{{ url_for('main.index') }}"><span class="brand-mark">{{ icon('utensils') }}</span>
+      <span class="brand-name">{{ business_name }}<small class="muted">gestão de comandas</small></span></a>
+    {% for section, items in nav %}
+      {% if section == 'Operação' or is_manager() %}<div class="sec">{{ section }}</div>
+      {% for endpoint, label, ic, mgr, active in items %}{% if not mgr or is_manager() %}
+        {% if active %}{% set ns.label = label %}{% endif %}
+        <a class="nav-item {{ 'on' if active }}" href="{{ url_for(endpoint) }}" title="{{ label }}">{{ icon(ic) }}<span class="lbl">{{ label }}</span></a>
+      {% endif %}{% endfor %}{% endif %}
+    {% endfor %}
+    <div class="sb-foot">
+      <div class="user"><span class="avatar">{{ current_user.display_name[:1]|upper }}</span>
+        <span class="user-txt"><b>{{ current_user.display_name }}</b><small class="muted">{{ 'Gerente' if current_user.role=='gerente' else 'Garçom' }}</small></span></div>
+      <a class="nav-item" href="{{ url_for('auth.change_password') }}" title="Alterar senha">{{ icon('key') }}<span class="lbl">Alterar senha</span></a>
+      <form method="post" action="{{ url_for('auth.logout') }}">{{ fields() }}
+        <button class="nav-item" type="submit" title="Sair">{{ icon('logout') }}<span class="lbl">Sair</span></button></form>
+    </div>
+  </aside>
+  <div class="scrim" data-menu></div>
+  <div class="content">
+    <header class="topbar">
+      <button class="btn icon ghost menu-btn" type="button" data-menu aria-label="Abrir menu">{{ icon('menu') }}</button>
+      <span class="crumb">{{ ns.label }}</span><span class="sp"></span>
+      <div class="dock">
+        <button class="btn wa sm" type="button" id="wa-dock" title="Abrir o WhatsApp ao lado do sistema">{{ icon('chat') }}<span class="lbl">WhatsApp</span></button>
+        <button class="btn icon sm" type="button" data-open="dlg-dock" title="Ajustar o WhatsApp ao lado" aria-label="Ajustar o WhatsApp ao lado">{{ icon('panel') }}</button>
+      </div>
+      {{ theme_toggle('sm') }}
+    </header>
+    {{ flashes() }}
+    <main>{% block content %}{% endblock %}</main>
+  </div>
+</div>
+
+<dialog id="dlg-dock"><h2>WhatsApp ao lado do sistema</h2>
+  <p class="muted">O WhatsApp Web não permite ser embutido dentro de outra página. Este modo abre o WhatsApp em uma janela encaixada ao lado direito da tela, para você atender e lançar o pedido sem trocar de aba.</p>
+  <div class="field"><label>Largura do sistema: <b id="split-val">60</b>% da tela</label><input type="range" id="split-range" min="40" max="75" step="5" value="60"></div>
+  <div class="stack">
+    <button class="btn pri" type="button" id="dock-now" style="width:100%">{{ icon('chat') }} Acoplar WhatsApp agora</button>
+    <button class="btn" type="button" id="open-app" style="width:100%">{{ icon('panel') }} Abrir o sistema em janela própria (lado esquerdo)</button>
+  </div>
+  <p class="muted"><small>• O navegador só consegue ajustar janelas que ele mesmo abriu; por isso use “janela própria” uma vez para o sistema ocupar a metade esquerda.<br>
+  • Permita pop-ups para este endereço se o navegador perguntar.<br>
+  • Para mudar a largura depois, feche a janela do WhatsApp e acople de novo.<br>
+  • Atalho do Windows: Win + ← no sistema e Win + → no WhatsApp.</small></p>
+  <button class="btn" type="button" data-close>Fechar</button></dialog>
+{% else %}
+<div class="auth-top">{{ theme_toggle() }}</div>
+<div class="auth-wrap"><div>{{ flashes() }}{% block auth %}{{ self.content() }}{% endblock %}</div></div>
+{% endif %}
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body></html>

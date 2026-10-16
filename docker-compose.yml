@@ -1,0 +1,26 @@
+# Publicação com HTTPS automático (Caddy). Precisa de um domínio apontando para o servidor.
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      COMANDAFACIL_SECRET_KEY: ${COMANDAFACIL_SECRET_KEY:?defina no arquivo .env}
+      COMANDAFACIL_HTTPS: "1"
+      COMANDAFACIL_BEHIND_PROXY: "1"
+    volumes:
+      - dados:/data          # banco, backups e chave — NÃO apague este volume
+    expose:
+      - "8000"
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on: [app]
+    ports: ["80:80", "443:443"]
+    environment:
+      DOMINIO: ${DOMINIO:?defina no arquivo .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_dados:/data
+volumes:
+  dados:
+  caddy_dados:

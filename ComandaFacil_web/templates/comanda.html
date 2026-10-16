@@ -1,0 +1,135 @@
+{% extends "base.html" %}{% from "_macros.html" import fields, status_badge, icon %}
+{% block title %}{{ order_title(order) }} · {{ business_name }}{% endblock %}
+{% block content %}
+{% set open = order.status == 'aberta' %}
+<div class="page-head">
+  <div><h1>{{ order_title(order) }} {{ status_badge(order) }}</h1>
+    <small class="muted">Comanda #{{ order.id }} · aberta {{ order.created_at|dt }}{% if order.closed_at %} · encerrada {{ order.closed_at|dt }}{% endif %}</small></div>
+  <div class="row"><a class="btn" href="{{ url_for('main.index') }}">{{ icon('back') }} Mesas</a>
+    <a class="btn" href="{{ url_for('main.cupom', order_id=order.id) }}">{{ icon('printer') }} Cupom</a>
+    <button class="btn wa" type="button" data-open="dlg-wa">{{ icon('chat') }} Mensagem</button></div>
+</div>
+
+{% if order.kind != 'mesa' %}
+<div class="card"><div class="row sb"><div>
+  <b>{{ order.customer_name or 'Sem nome' }}</b>{% if order.customer_phone %} · {{ order.customer_phone }}{% endif %}
+  {% if order.address %}<br><small>📍 {{ order.address }}</small>{% endif %}</div>
+  {% if open %}<button class="btn sm" type="button" data-open="dlg-cli">Editar dados</button>{% endif %}</div></div>
+{% endif %}
+{% if merged_from %}<div class="flash info">Juntada com: {% for m in merged_from %}{{ m.table_name or ('#'~m.id) }}{{ ', ' if not loop.last }}{% endfor %}</div>{% endif %}
+{% if order.status == 'cancelada' %}<div class="flash erro"><b>Cancelada</b> em {{ order.cancelled_at|dt }} — motivo: {{ order.cancel_reason }}</div>{% endif %}
+{% if order.status == 'juntada' %}<div class="flash info">Esta comanda foi juntada na <a href="{{ url_for('main.comanda', order_id=order.merged_into) }}">comanda #{{ order.merged_into }}</a>.</div>{% endif %}
+
+<div class="cols">
+<section>
+  <div class="card"><h2>Itens</h2>
+    {% if items %}<div class="tblwrap"><table>
+      <tr><th>Item</th><th class="r">Qtd</th><th class="r">Valor</th><th></th></tr>
+      {% for it in items %}<tr>
+        <td>{{ it.product_name }}{% if it.note %}<div class="item-note">↳ {{ it.note }}</div>{% endif %}<small class="muted">{{ it.unit_price_cents|brl }} cada</small></td>
+        <td class="r">{% if open %}<form class="qty" method="post" action="{{ url_for('main.alterar_qtd', item_id=it.id) }}">{{ fields() }}
+            <button name="delta" value="-1" title="Diminuir">−</button><b>{{ it.quantity }}</b><button name="delta" value="1" title="Aumentar">+</button></form>{% else %}{{ it.quantity }}{% endif %}</td>
+        <td class="r">{{ (it.unit_price_cents * it.quantity)|brl }}</td>
+        <td class="r">{% if open %}<form method="post" action="{{ url_for('main.remover_item', item_id=it.id) }}">{{ fields() }}<button class="btn sm danger" title="Remover item">✕</button></form>{% endif %}</td>
+      </tr>{% endfor %}</table></div>
+    {% else %}<p class="muted">Nenhum item ainda. Escolha no cardápio ao lado.</p>{% endif %}
+
+    <div class="totals" style="margin-top:.8rem">
+      <div><span>Subtotal</span><span>{{ totals.subtotal|brl }}</span></div>
+      {% if open %}
+      <div><form method="post" action="{{ url_for('main.servico', order_id=order.id) }}" class="row" style="gap:.3rem">{{ fields() }}
+        <span>Taxa de serviço ({{ service_pct }}%)</span>
+        <button class="btn sm" name="enabled" value="{{ 0 if order.service_enabled else 1 }}">{{ 'Remover' if order.service_enabled else 'Cobrar' }}</button></form>
+        <span>{{ totals.service|brl }}</span></div>
+      {% elif totals.service %}<div><span>Taxa de serviço ({{ order.service_pct }}%)</span><span>{{ totals.service|brl }}</span></div>{% endif %}
+      {% if totals.delivery %}<div><span>Entrega</span><span>{{ totals.delivery|brl }}</span></div>{% endif %}
+      <div class="big"><span>Total</span><span>{{ totals.total|brl }}</span></div>
+    </div>
+    {% if payments %}<hr style="border:0;border-top:1px dashed var(--line);margin:1rem 0 .6rem"><b>Pagamentos</b>
+      {% for p in payments %}<div class="row sb"><span>{{ p.method }}</span><span>{{ p.amount_cents|brl }}</span></div>{% endfor %}{% endif %}
+  </div>
+
+  {% if open %}<div class="card"><div class="row">
+    <button class="btn pri" type="button" data-open="dlg-pay" {{ 'disabled' if not items }}>Fechar conta</button>
+    <button class="btn" type="button" data-open="dlg-split" {{ 'disabled' if not items }}>Dividir conta</button>
+    {% if order.kind == 'mesa' %}<button class="btn" type="button" data-open="dlg-transfer">Transferir mesa</button>
+      {% if mergeable %}<button class="btn" type="button" data-open="dlg-merge">Juntar mesas</button>{% endif %}{% endif %}
+    {% if not items or is_manager() %}<button class="btn danger" type="button" data-open="dlg-cancel">Cancelar comanda</button>{% endif %}
+  </div></div>
+  {% elif order.status == 'fechada' and is_manager() %}<div class="card">
+    <button class="btn danger" type="button" data-open="dlg-cancel">Estornar venda</button></div>{% endif %}
+</section>
+
+{% if open %}
+<section class="card" id="cardapio"><h2>Cardápio</h2>
+  <input id="prod-search" type="search" placeholder="Buscar produto…" style="width:100%">
+  <div class="chips">{% for c in categories %}<button type="button" class="chip" data-cat="{{ c }}">{{ c }}</button>{% endfor %}</div>
+  <div class="prodlist">
+  {% for p in products %}
+    <form class="prod" method="post" action="{{ url_for('main.adicionar_item', order_id=order.id) }}" data-name="{{ p.name|lower }}" data-cat="{{ p.category }}">
+      {{ fields() }}<input type="hidden" name="product_id" value="{{ p.id }}">
+      <div class="nm"><b>{{ p.name }}</b><small>{{ p.price_cents|brl }}{% if p.track_stock %} · estoque {{ p.stock }}{% endif %}</small></div>
+      <input type="number" name="quantity" value="1" min="1" max="999" aria-label="Quantidade">
+      <input name="note" maxlength="140" placeholder="observação" aria-label="Observação">
+      <button class="btn pri sm" {{ 'disabled' if p.track_stock and p.stock < 1 }}>{{ 'Sem estoque' if p.track_stock and p.stock < 1 else 'Adicionar' }}</button>
+    </form>
+  {% endfor %}
+  </div>
+</section>
+{% endif %}
+</div>
+
+{# ---------- diálogos ---------- #}
+<dialog id="dlg-wa"><h2>Mensagem no WhatsApp</h2>
+  <div class="field"><label>Telefone do cliente (com DDD)</label><input id="wa-phone" value="{{ wa_phone[2:] if wa_phone.startswith('55') and wa_phone|length>11 else wa_phone }}" inputmode="tel"></div>
+  <div class="field"><label>Mensagem (pode editar antes de enviar)</label><textarea id="wa-text" rows="11">{{ wa_text }}</textarea></div>
+  <div class="row"><button class="btn pri" id="wa-send" type="button">Abrir conversa no WhatsApp</button>
+    <button class="btn" id="wa-copy" type="button">Copiar mensagem</button><button class="btn" type="button" data-close>Fechar</button></div>
+  <p class="muted"><small>A conversa abre na janela do WhatsApp, encaixada ao lado do sistema, com a mensagem preenchida; você só confirma o envio. Mantenha o WhatsApp Web conectado nessa janela.</small></p></dialog>
+
+{% if open %}
+<dialog id="dlg-pay"><h2>Fechar conta — {{ totals.total|brl }}</h2>
+  <form method="post" action="{{ url_for('main.fechar', order_id=order.id) }}" id="pay-box" data-total="{{ totals.total }}">{{ fields() }}
+    <div id="pay-rows"></div>
+    <template id="pay-tpl"><div class="payrow"><select name="pay_method">{% for m in PAYMENT_METHODS %}<option>{{ m }}</option>{% endfor %}</select>
+      <input name="pay_amount" inputmode="decimal" placeholder="0,00"></div></template>
+    <div class="row" style="margin:.4rem 0 .8rem"><button type="button" class="btn sm" id="pay-add">+ outra forma</button>
+      <button type="button" class="btn sm" id="pay-fill">Completar valor restante</button><span id="pay-status" class="badge"></span></div>
+    <p class="muted"><small>Pagamento dividido: some mais de uma linha. Troco só em dinheiro.</small></p>
+    <div class="row"><button class="btn pri" type="submit">Confirmar pagamento</button><button class="btn" type="button" data-close>Voltar</button></div></form></dialog>
+
+<dialog id="dlg-split"><h2>Dividir a conta</h2>
+  <div class="field"><label>Quantas pessoas?</label><input id="split-n" type="number" min="1" max="50" value="2" data-total="{{ totals.total }}"></div>
+  <div id="split-res" class="stack"></div>
+  <p class="muted"><small>Divisão igual, sem perder centavos. Para receber de cada pessoa, use “Fechar conta” com uma linha por pagamento.</small></p>
+  <button class="btn" type="button" data-close>Fechar</button></dialog>
+
+{% if order.kind == 'mesa' %}
+<dialog id="dlg-transfer"><h2>Transferir para outra mesa</h2>
+  <form method="post" action="{{ url_for('main.transferir', order_id=order.id) }}">{{ fields() }}
+    <div class="field"><label>Mesa livre de destino</label><select name="table_id" required>{% for t in free_tables %}<option value="{{ t.id }}">{{ t.name }}</option>{% endfor %}</select></div>
+    <div class="row"><button class="btn pri" type="submit" {{ 'disabled' if not free_tables }}>Transferir</button><button class="btn" type="button" data-close>Voltar</button></div></form></dialog>
+<dialog id="dlg-merge"><h2>Juntar mesas</h2>
+  <form method="post" action="{{ url_for('main.juntar', order_id=order.id) }}">{{ fields() }}
+    <p class="muted">Os itens da mesa escolhida passam para esta comanda e a outra mesa é liberada.</p>
+    <div class="field"><label>Trazer itens de</label><select name="source_id">{% for m in mergeable %}<option value="{{ m.id }}">{{ m.table_name }}</option>{% endfor %}</select></div>
+    <div class="row"><button class="btn pri" type="submit">Juntar</button><button class="btn" type="button" data-close>Voltar</button></div></form></dialog>
+{% else %}
+<dialog id="dlg-cli"><h2>Dados do cliente</h2>
+  <form method="post" action="{{ url_for('main.cliente', order_id=order.id) }}">{{ fields() }}
+    <div class="field"><label>Nome</label><input name="customer_name" value="{{ order.customer_name or '' }}" maxlength="80"></div>
+    <div class="field"><label>Telefone</label><input name="customer_phone" value="{{ order.customer_phone or '' }}" maxlength="20"></div>
+    <div class="field"><label>Endereço</label><input name="address" value="{{ order.address or '' }}" maxlength="200"></div>
+    {% if order.kind == 'delivery' %}<div class="field"><label>Taxa de entrega (R$)</label><input name="delivery_fee" value="{{ order.delivery_fee_cents|cents_input }}"></div>{% endif %}
+    <div class="row"><button class="btn pri" type="submit">Salvar</button><button class="btn" type="button" data-close>Voltar</button></div></form></dialog>
+{% endif %}
+{% endif %}
+
+{% if (open and (not items or is_manager())) or (order.status == 'fechada' and is_manager()) %}
+<dialog id="dlg-cancel"><h2>{{ 'Estornar venda' if order.status == 'fechada' else 'Cancelar comanda' }}</h2>
+  <form method="post" action="{{ url_for('main.cancelar', order_id=order.id) }}">{{ fields() }}
+    <div class="field"><label>Motivo (obrigatório, fica no registro de auditoria)</label><input name="reason" maxlength="200" required></div>
+    <div class="field"><label><input type="checkbox" name="restore_stock" value="1" checked style="width:auto"> Devolver os itens ao estoque (produtos com controle)</label></div>
+    <div class="row"><button class="btn danger" type="submit">Confirmar</button><button class="btn" type="button" data-close>Voltar</button></div></form></dialog>
+{% endif %}
+{% endblock %}
