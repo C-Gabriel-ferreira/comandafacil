@@ -1,0 +1,52 @@
+name: Instalador Windows
+
+# Gera o instalador e publica em Releases quando o arquivo VERSION muda (ou manualmente).
+on:
+  push:
+    branches: [main]
+    paths: [VERSION]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Dependências
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          pip install "Flask>=3.0,<4.0" "waitress>=3.0,<4.0" tzdata pyinstaller
+      - name: Testes
+        shell: pwsh
+        run: python -m unittest discover -s tests
+      - name: Versão
+        id: v
+        shell: pwsh
+        run: echo "version=$((Get-Content VERSION).Trim())" >> $env:GITHUB_OUTPUT
+      - name: Empacotar (PyInstaller)
+        shell: pwsh
+        run: |
+          pyinstaller installer/comandafacil.spec --noconfirm --distpath dist --workpath build
+          if (-not (Test-Path dist/ComandaFacil/ComandaFacil.exe)) { throw "ComandaFacil.exe não foi gerado" }
+      - name: Instalador (Inno Setup)
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=${{ steps.v.outputs.version }}" installer/comandafacil.iss
+          if (-not (Test-Path dist/ComandaFacil-Setup.exe)) { throw "Instalador não foi gerado" }
+      - name: Publicar release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.v.outputs.version }}
+          name: ComandaFácil ${{ steps.v.outputs.version }}
+          body: |
+            Instalador do ComandaFácil para Windows 10/11 (HelpTech).
+            Baixe `ComandaFacil-Setup.exe` e execute. Se o Windows exibir um aviso do SmartScreen, clique em "Mais informações" e depois em "Executar assim mesmo".
+          files: dist/ComandaFacil-Setup.exe
