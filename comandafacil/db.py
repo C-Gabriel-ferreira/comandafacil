@@ -41,7 +41,28 @@ DATA_DIR = Path(os.environ.get("COMANDAFACIL_DATA_DIR") or _default_data)
 DB_PATH = DATA_DIR / "comandas.db"
 BACKUP_DIR = DATA_DIR / "backups"
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
+
+# Controle de caixa (v3, só SQLite — usado pelo programa desktop): turnos e sangria/suprimento.
+CASH_SQL = """
+CREATE TABLE IF NOT EXISTS cash_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    opened_at TEXT NOT NULL, opened_by INTEGER,
+    opening_cents INTEGER NOT NULL CHECK(opening_cents >= 0),
+    closed_at TEXT, closed_by INTEGER,
+    expected_cents INTEGER, counted_cents INTEGER, note TEXT NOT NULL DEFAULT ''
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_one_open_cash ON cash_sessions((1)) WHERE closed_at IS NULL;
+CREATE TABLE IF NOT EXISTS cash_movements (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id INTEGER NOT NULL REFERENCES cash_sessions(id),
+    kind TEXT NOT NULL CHECK(kind IN ('sangria','suprimento')),
+    amount_cents INTEGER NOT NULL CHECK(amount_cents > 0),
+    reason TEXT NOT NULL, user_id INTEGER, created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_cash_mov_session ON cash_movements(session_id);
+"""
+
 # Migrações: {versão: "SQL;"} — rodam em ordem, com backup antes.
 MIGRATIONS: dict[int, str] = {
     2: """
@@ -50,6 +71,7 @@ MIGRATIONS: dict[int, str] = {
     ALTER TABLE order_items ADD COLUMN ready_at TEXT;
     ALTER TABLE orders ADD COLUMN bill_requested_at TEXT;
     """,
+    3: CASH_SQL,
 }
 
 DEFAULT_SETTINGS = {
@@ -317,6 +339,7 @@ SEED_PRODUCTS = [
 
 def _create_schema(conn):
     conn.executescript(SCHEMA)
+    conn.executescript(CASH_SQL)
     conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
     for k, v in DEFAULT_SETTINGS.items():
         set_setting(conn, k, v)

@@ -73,7 +73,7 @@
     dl.href = url; dl.removeAttribute("aria-disabled");
     var mb = bytes ? " · " + Math.round(bytes / 1048576) + " MB" : "";
     $("dl-meta").textContent = "Windows 10 ou 11" + (version ? " · versão " + version : "") + mb;
-    $("dl-note").textContent = "Instalador .exe. Funciona sem internet depois de instalado.";
+    $("dl-note").textContent = "Instalador .exe com o PDV em janela. Funciona sem internet depois de instalado.";
   }
   if (cfg.downloadUrl) {
     enableDownload(cfg.downloadUrl);

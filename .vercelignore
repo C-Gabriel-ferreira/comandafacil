@@ -16,3 +16,7 @@ launcher.py
 VERSION
 requirements-postgres.txt
 .github
+desktop
+comandafacil_desktop.py
+requirements-desktop.txt
+README_DESKTOP.md
