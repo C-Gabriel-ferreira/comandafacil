@@ -5,3 +5,7 @@ backups
 secret.key
 .env
 tests
+desktop
+comandafacil_desktop.py
+requirements-desktop.txt
+README_DESKTOP.md

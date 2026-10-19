@@ -186,9 +186,9 @@ class V1UpgradeTests(unittest.TestCase):
             ALTER TABLE order_items DROP COLUMN ready_at; ALTER TABLE orders DROP COLUMN bill_requested_at;
             PRAGMA user_version=1;""")
         c.close()
-        dbm.init_db()  # migra v1 -> v2 com backup
+        dbm.init_db()  # migra v1 -> versão atual com backup
         c = dbm.connect()
-        self.assertEqual(c.execute("PRAGMA user_version").fetchone()[0], 2)
+        self.assertEqual(c.execute("PRAGMA user_version").fetchone()[0], dbm.SCHEMA_VERSION)
         c.execute("SELECT kitchen_status, sent_at, ready_at FROM order_items")
         c.execute("SELECT bill_requested_at FROM orders")
         self.assertTrue(list((Path(d) / "backups").glob("*pre_migracao.db")))
