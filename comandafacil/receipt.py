@@ -126,3 +126,34 @@ def build_cash_report(conn, session_id, width=WIDTH) -> str:
             L += _wrap(f"Obs: {s['note']}", width)
     L += [bar, "", "Assinatura: ______________________", ""]
     return "\n".join(L)
+
+
+def build_online_ticket(conn, o, width=WIDTH) -> str:
+    """Ficha do pedido online para a cozinha/entregador (inclui forma de pagamento e troco)."""
+    biz = get_setting(conn, "business_name", "ComandaFácil")
+    bar = "-" * width
+    L = [_center(biz.upper(), width), _center(f"PEDIDO ONLINE #{o['seq']}", width), bar,
+         _two("Tipo", "ENTREGA" if o["kind"] == "entrega" else "RETIRADA", width),
+         f"Recebido: {_fmt_dt(o['received_at'])}", f"Cliente: {o['customer_name']}",
+         f"Telefone: {o['customer_phone']}"]
+    if o["address"]:
+        L += _wrap(f"Endereco: {o['address']}", width)
+    L += [bar, _two("QTD ITEM", "VALOR", width), bar]
+    for it in o["items"]:
+        L.append(_two(f"{it['qty']}x {it['name']}", format_brl(it["price_cents"] * it["qty"]), width))
+        if it.get("note"):
+            L += _wrap(f"Obs: {it['note']}", width - 3, "   ")
+    L.append(bar)
+    if o["note"]:
+        L += _wrap(f"Obs do pedido: {o['note']}", width) + [bar]
+    L.append(_two("Subtotal", format_brl(o["subtotal_cents"]), width))
+    if o["delivery_fee_cents"]:
+        L.append(_two("Taxa de entrega", format_brl(o["delivery_fee_cents"]), width))
+    L.append(_two("TOTAL", format_brl(o["total_cents"]), width))
+    L.append(bar)
+    L.append(_two("Pagamento", o["payment_method"], width))
+    if o["change_for_cents"]:
+        L.append(_two("Troco para", format_brl(o["change_for_cents"]), width))
+        L.append(_two("Levar de troco", format_brl(o["change_for_cents"] - o["total_cents"]), width))
+    L.append("")
+    return "\n".join(L)

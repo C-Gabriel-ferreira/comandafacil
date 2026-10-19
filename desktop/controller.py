@@ -6,7 +6,7 @@ import time
 
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from comandafacil import cash, db as dbm, receipt, services
+from comandafacil import cash, db as dbm, online, receipt, services
 from comandafacil.clock import minutes_since
 from comandafacil.db import transaction
 from comandafacil.money import format_brl
@@ -21,6 +21,7 @@ class Controller:
         self.conn = conn
         self.user = None
         self._fails: dict[str, tuple[int, float]] = {}
+        self.cloud_transport = None  # injetável nos testes
 
     # ------------------------------------------------------------ sessão
     @property
@@ -289,3 +290,79 @@ class Controller:
 
     def low_stock(self):
         return services.low_stock_products(self.conn)
+
+    # ----------------------------------------------------------- pedidos online
+    def _client(self):
+        return online.CloudClient.from_conn(self.conn, transport=self.cloud_transport)
+
+    def online_configured(self) -> bool:
+        return online.is_configured(self.conn)
+
+    def online_activate(self, code):
+        self.require_manager()
+        online.activate(self.conn, code)
+        self.audit("online_ativado")
+
+    def online_deactivate(self):
+        self.require_manager()
+        online.deactivate(self.conn)
+        self.audit("online_desativado")
+
+    def online_save_settings(self, delivery, pickup, fee_cents, min_cents, hours, notice, site_url=""):
+        self.require_manager()
+        d = self.conn
+        dbm.set_setting(d, "online_delivery", "1" if delivery else "0")
+        dbm.set_setting(d, "online_pickup", "1" if pickup else "0")
+        dbm.set_setting(d, "online_fee_cents", max(0, int(fee_cents)))
+        dbm.set_setting(d, "online_min_cents", max(0, int(min_cents)))
+        dbm.set_setting(d, "online_hours", (hours or "").strip()[:200])
+        dbm.set_setting(d, "online_notice", (notice or "").strip()[:300])
+        dbm.set_setting(d, "online_site", (site_url or "").strip())
+
+    def online_publish(self):
+        self.require_manager()
+        n = online.publish(self.conn, self._client())
+        self.audit("cardapio_publicado", f"{n} itens")
+        return n
+
+    def online_set_accepting(self, flag):
+        if flag:
+            self.require_cash()
+        self._client().set_accepting(flag)
+        dbm.set_setting(self.conn, "online_accepting", "1" if flag else "0")
+
+    def online_accepting(self) -> bool:
+        return self.setting("online_accepting", "0") == "1"
+
+    def online_sync(self):
+        res = online.sync(self.conn, self._client())
+        dbm.set_setting(self.conn, "online_accepting", "1" if res["accepting"] else "0")
+        return res
+
+    def online_orders(self, active_only=True):
+        return online.list_orders(self.conn, active_only)
+
+    def online_new_count(self) -> int:
+        return online.unseen_count(self.conn)
+
+    def online_accept(self, code):
+        self.require_cash()
+        oid = online.accept(self.conn, code, self.user_id)
+        self.audit("online_aceito", code)
+        return oid
+
+    def online_reject(self, code, reason=""):
+        online.reject(self.conn, code, reason)
+        self.audit("online_recusado", f"{code} {reason}")
+
+    def online_dispatched(self, code):
+        online.mark_dispatched(self.conn, code)
+
+    def online_ready(self, code):
+        online.mark_ready(self.conn, code)
+
+    def online_wa(self, code):
+        return online.wa_message(self.conn, code)
+
+    def online_ticket(self, code):
+        return receipt.build_online_ticket(self.conn, online.get(self.conn, code))

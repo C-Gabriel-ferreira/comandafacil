@@ -41,7 +41,7 @@ DATA_DIR = Path(os.environ.get("COMANDAFACIL_DATA_DIR") or _default_data)
 DB_PATH = DATA_DIR / "comandas.db"
 BACKUP_DIR = DATA_DIR / "backups"
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 # Controle de caixa (v3, só SQLite — usado pelo programa desktop): turnos e sangria/suprimento.
 CASH_SQL = """
@@ -63,6 +63,26 @@ CREATE TABLE IF NOT EXISTS cash_movements (
 CREATE INDEX IF NOT EXISTS idx_cash_mov_session ON cash_movements(session_id);
 """
 
+# Pedidos online (v4, só SQLite — programa desktop): caixa de entrada vinda do cardápio digital.
+ONLINE_SQL = """
+CREATE TABLE IF NOT EXISTS online_orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    code TEXT NOT NULL UNIQUE,
+    seq INTEGER NOT NULL,
+    kind TEXT NOT NULL CHECK(kind IN ('entrega','retirada')),
+    customer_name TEXT NOT NULL, customer_phone TEXT NOT NULL, address TEXT NOT NULL DEFAULT '',
+    note TEXT NOT NULL DEFAULT '', payment_method TEXT NOT NULL, change_for_cents INTEGER,
+    subtotal_cents INTEGER NOT NULL, delivery_fee_cents INTEGER NOT NULL DEFAULT 0, total_cents INTEGER NOT NULL,
+    items_json TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'novo',
+    pushed_status TEXT NOT NULL DEFAULT 'novo',
+    reject_reason TEXT NOT NULL DEFAULT '',
+    order_id INTEGER REFERENCES orders(id),
+    received_at TEXT NOT NULL, decided_at TEXT, seen INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_online_status ON online_orders(status);
+"""
+
 # Migrações: {versão: "SQL;"} — rodam em ordem, com backup antes.
 MIGRATIONS: dict[int, str] = {
     2: """
@@ -72,6 +92,7 @@ MIGRATIONS: dict[int, str] = {
     ALTER TABLE orders ADD COLUMN bill_requested_at TEXT;
     """,
     3: CASH_SQL,
+    4: ONLINE_SQL,
 }
 
 DEFAULT_SETTINGS = {
@@ -340,6 +361,7 @@ SEED_PRODUCTS = [
 def _create_schema(conn):
     conn.executescript(SCHEMA)
     conn.executescript(CASH_SQL)
+    conn.executescript(ONLINE_SQL)
     conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
     for k, v in DEFAULT_SETTINGS.items():
         set_setting(conn, k, v)

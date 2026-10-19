@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (QApplication, QButtonGroup, QFrame, QHBoxLayout, 
 from . import dialogs as dlg
 from .cash_view import CashView
 from .kitchen_view import KitchenView
+from .online_view import OnlineView
 from .pdv_view import PdvView
 from .products_view import ProductsView
 from .reports_view import ReportsView
@@ -36,7 +37,9 @@ class MainWindow(QMainWindow):
         self.pdv = PdvView(ctrl)
         self.cash = CashView(ctrl, on_change=self.pdv.refresh_all)
         self.kitchen = KitchenView(ctrl)
-        self.pages = [("PDV", self.pdv, False), ("Cozinha", self.kitchen, False)]
+        self.online = OnlineView(ctrl, on_new=self.set_online_badge, on_change=self.pdv.refresh_all)
+        self.pages = [("PDV", self.pdv, False), ("Pedidos online", self.online, False),
+                      ("Cozinha", self.kitchen, False)]
         self.pages.append(("Caixa", self.cash, False))
         if ctrl.is_manager:
             self.products = ProductsView(ctrl, on_change=self.pdv.refresh_all)
@@ -65,16 +68,18 @@ class MainWindow(QMainWindow):
         self.side.addSpacing(10)
         self.nav_group = QButtonGroup(self)
         self.nav_group.setExclusive(True)
+        self.nav_buttons = {}
         return bar
 
     def _add_nav(self):
-        icons = {"PDV": "🧾", "Cozinha": "👨‍🍳", "Caixa": "💰", "Produtos": "🍔", "Relatórios": "📊"}
+        icons = {"PDV": "🧾", "Pedidos online": "🛵", "Cozinha": "👨‍🍳", "Caixa": "💰", "Produtos": "🍔", "Relatórios": "📊"}
         for i, (name, _, _) in enumerate(self.pages):
             b = QPushButton(f"{icons.get(name, '')}  {name}")
             b.setObjectName("nav")
             b.setCheckable(True)
             b.clicked.connect(lambda _=False, idx=i: self.go(idx))
             self.nav_group.addButton(b, i)
+            self.nav_buttons[name] = b
             self.side.addWidget(b)
         self.side.addStretch(1)
         if self.server_url:
@@ -105,6 +110,11 @@ class MainWindow(QMainWindow):
                 getattr(page, method)()
                 break
         self.update_cash_label()
+
+    def set_online_badge(self, n):
+        b = self.nav_buttons.get("Pedidos online")
+        if b:
+            b.setText("🛵  Pedidos online" + (f"  ({n})" if n else ""))
 
     def update_cash_label(self):
         if self.ctrl.cash_session():
