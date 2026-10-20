@@ -12,6 +12,13 @@ import traceback
 from pathlib import Path
 
 
+def _slug(text) -> str:
+    import re
+    import unicodedata
+    t = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode()
+    return re.sub(r"[^a-z0-9]+", "-", t.lower()).strip("-")
+
+
 def run_selftest(outdir) -> int:
     out = Path(outdir)
     out.mkdir(parents=True, exist_ok=True)
@@ -40,6 +47,10 @@ def run_selftest(outdir) -> int:
         ctrl.send_to_kitchen(oid)
         ctrl.add_item(prods[2], 1, order_id=oid)
         ctrl.new_counter_order("delivery", "Ana Souza", "94991016248", "Rua das Flores, 100", 500)
+        # vendas fechadas de exemplo, para a tela inicial e os relatórios mostrarem dados
+        for tid, pid, qty in ((5, prods[0], 2), (6, prods[1], 3), (7, prods[2], 1)):
+            paid = ctrl.add_item(pid, qty, table_id=tid)
+            ctrl.pay(paid, [("Pix", ctrl.order_detail(paid)[2]["total"])])
 
         # pedidos online de exemplo (nuvem falsa: nada sai da máquina)
         from comandafacil import online
@@ -65,7 +76,7 @@ def run_selftest(outdir) -> int:
         online.sync(ctrl.conn, online.CloudClient.from_conn(ctrl.conn, transport=fake_cloud))
 
         app = QApplication.instance() or QApplication([])
-        app.setStyleSheet(stylesheet(True))
+        app.setStyleSheet(stylesheet(False))
         win = MainWindow(ctrl, "http://192.168.0.10:5000")
         win.resize(1360, 820)
         win.show()
@@ -73,10 +84,10 @@ def run_selftest(outdir) -> int:
         for i, (name, _, _) in enumerate(win.pages):
             win.go(i)
             app.processEvents()
-            win.grab().save(str(out / f"{i + 1}-{name}.png"))
+            win.grab().save(str(out / f"{i + 1}-{_slug(name)}.png"))
         win.online.table.selectRow(0)
         win.online.show_detail()
-        win.go(1)
+        win.go_name("Pedidos online")
         app.processEvents()
         win.grab().save(str(out / "pedidos-online-detalhe.png"))
         assert ctrl.online_new_count() == 2
@@ -105,11 +116,17 @@ def run_selftest(outdir) -> int:
         up.grab().save(str(out / "atualizacao.png"))
         up.close()
         win.grab().save(str(out / "barra-lateral-atualizacao.png"))
-        win.go(0)
+        win.go_name("PDV")
+        win.dark = True
+        win.apply_theme()
+        app.processEvents()
+        win.grab().save(str(out / "pdv-escuro.png"))
+        win.go_name("Início")
+        app.processEvents()
+        win.grab().save(str(out / "inicio-escuro.png"))
         win.dark = False
         win.apply_theme()
         app.processEvents()
-        win.grab().save(str(out / "1-PDV-claro.png"))
         pay = dlg.PaymentDialog(ctrl, oid)
         pay.show()
         app.processEvents()

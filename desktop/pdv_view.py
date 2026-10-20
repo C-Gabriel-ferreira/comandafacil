@@ -12,7 +12,7 @@ from comandafacil.money import format_brl
 
 from . import dialogs as dlg
 
-BOARD_COLS, PRODUCT_COLS = 3, 3
+BOARD_COLS, PRODUCT_COLS = 3, 2
 
 
 def _clear(layout):
@@ -29,6 +29,7 @@ def _scroll(inner: QWidget) -> QScrollArea:
     area.setWidgetResizable(True)
     area.setWidget(inner)
     area.setFrameShape(QFrame.Shape.NoFrame)
+    area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
     return area
 
 
@@ -53,7 +54,7 @@ class PdvView(QWidget):
         root = QHBoxLayout(self)
         root.setContentsMargins(12, 12, 12, 12)
         root.setSpacing(12)
-        root.addWidget(self._build_board(), 3)
+        root.addWidget(self._build_board(), 4)
         root.addWidget(self._build_menu(), 4)
         root.addWidget(self._build_order(), 4)
 
@@ -97,7 +98,7 @@ class PdvView(QWidget):
     def _build_menu(self):
         panel, lay = self._panel()
         self.banner = QLabel()
-        self.banner.setStyleSheet("background:#7f1d1d;color:white;border-radius:8px;padding:8px;font-weight:700;")
+        self.banner.setObjectName("alert_bad")
         self.banner.setWordWrap(True)
         lay.addWidget(self.banner)
         self.search = QLineEdit()
@@ -243,7 +244,7 @@ class PdvView(QWidget):
         cards = [c for c in self.ctrl.board() if self.kind_filter in ("todos", c["kind"])]
         for i, c in enumerate(cards):
             if c["busy"]:
-                text = f"{c['name']}\n{format_brl(c['total'])} · {c['minutes']} min"
+                text = f"{c['name']}\n{format_brl(c['total'])}\n{c['minutes']} min"
                 if c["who"]:
                     text += f"\n{c['who'][:18]}"
                 if c["ready"]:
@@ -253,7 +254,8 @@ class PdvView(QWidget):
             else:
                 text = f"{c['name']}\nLivre"
             b = QPushButton(text)
-            b.setObjectName("tableBusy" if c["busy"] else "tableFree")
+            b.setObjectName("tableReady" if c["ready"] else "tableBill" if c["bill"]
+                            else "tableBusy" if c["busy"] else "tableFree")
             b.setCheckable(True)
             b.setChecked(self._is_selected(c))
             b.clicked.connect(lambda _=False, card=c: self.select_card(card))
@@ -286,6 +288,7 @@ class PdvView(QWidget):
     def refresh_products(self, *_):
         _clear(self.prod_grid)
         prods = self.ctrl.products(self.search.text(), self.category)
+        cat_index = {c: i for i, c in enumerate(self.ctrl.categories())}
         for i, p in enumerate(prods):
             text = f"{p['name']}\n{format_brl(p['price_cents'])}"
             out = bool(p["track_stock"]) and p["stock"] <= 0
@@ -293,6 +296,7 @@ class PdvView(QWidget):
                 text += f"  ·  {'esgotado' if out else str(p['stock']) + ' un.'}"
             b = QPushButton(text)
             b.setObjectName("product")
+            b.setProperty("cat", cat_index.get(p["category"], 7) % 8)
             b.setEnabled(not out)
             b.clicked.connect(lambda _=False, pid=p["id"]: self.add_product(pid))
             self.prod_grid.addWidget(b, i // PRODUCT_COLS, i % PRODUCT_COLS)

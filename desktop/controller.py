@@ -7,6 +7,7 @@ import time
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from comandafacil import cash, db as dbm, online, receipt, services, updater
+from comandafacil import clock
 from comandafacil.clock import minutes_since
 from comandafacil.db import transaction
 from comandafacil.money import format_brl
@@ -223,6 +224,9 @@ class Controller:
     def kitchen_tickets(self):
         return services.kitchen_tickets(self.conn)
 
+    def kitchen_level(self, minutes):
+        return services.kitchen_level(self.conn, minutes)
+
     def kitchen_step(self, order_id, step):
         services.kitchen_step(self.conn, order_id, step)
 
@@ -396,3 +400,28 @@ class Controller:
 
     def update_launch(self, path):
         updater.launch_installer(path)
+
+    # ------------------------------------------------------------------- início
+    def home_stats(self):
+        """Indicadores do dia para a tela inicial."""
+        from datetime import timedelta
+        today = clock.today()
+        r = services.sales_report(self.conn, today, today)
+        y = services.sales_report(self.conn, today - timedelta(days=1), today - timedelta(days=1))
+        busy = [b for b in self.board() if b["busy"]]
+        tickets = services.kitchen_tickets(self.conn)
+        late = sum(1 for t in tickets if t["state"] != "pronto"
+                   and services.kitchen_level(self.conn, minutes_since(t["since"])) == "bad")
+        sess = cash.current_session(self.conn)
+        return {
+            "today": today, "total": r["total"], "orders": r["orders"], "avg": r["avg"],
+            "delta_pct": None if not y["total"] else round((r["total"] - y["total"]) * 100 / y["total"]),
+            "yesterday_total": y["total"], "open_count": len(busy), "open_total": sum(b["total"] for b in busy),
+            "bills": sum(1 for b in busy if b["bill"]), "ready": sum(1 for b in busy if b["ready"]),
+            "by_hour": r["by_hour"], "top": r["top_products"][:5], "by_payment": r["by_payment"],
+            "cancelled": r["cancelled_n"], "kitchen": len(tickets), "kitchen_late": late,
+            "low_stock": [dict(p) for p in services.low_stock_products(self.conn)][:5],
+            "cash_open": sess is not None,
+            "online_new": online.unseen_count(self.conn), "online_active": len(online.list_orders(self.conn)),
+            "online_enabled": online.is_configured(self.conn),
+        }
