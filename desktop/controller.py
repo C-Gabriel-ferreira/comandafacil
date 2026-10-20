@@ -6,7 +6,7 @@ import time
 
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from comandafacil import cash, db as dbm, online, receipt, services
+from comandafacil import cash, db as dbm, online, receipt, services, updater
 from comandafacil.clock import minutes_since
 from comandafacil.db import transaction
 from comandafacil.money import format_brl
@@ -22,6 +22,7 @@ class Controller:
         self.user = None
         self._fails: dict[str, tuple[int, float]] = {}
         self.cloud_transport = None  # injetável nos testes
+        self.update_opener = None    # idem, para o atualizador
 
     # ------------------------------------------------------------ sessão
     @property
@@ -366,3 +367,32 @@ class Controller:
 
     def online_ticket(self, code):
         return receipt.build_online_ticket(self.conn, online.get(self.conn, code))
+
+    # -------------------------------------------------------------- atualização
+    def app_version(self) -> str:
+        return updater.current_version()
+
+    def update_fetch(self):
+        """Só rede (seguro em thread): None se está na última versão; senão o dicionário da Release."""
+        return updater.check_for_update(opener=self.update_opener)
+
+    def update_checked(self):
+        dbm.set_setting(self.conn, "update_last_check", dbm.now())
+
+    def update_history(self) -> str:
+        parts = [f"VERSÃO {v}\n{body}" for v, body in updater.changelog_sections(updater.changelog_text())]
+        return "\n\n".join(parts) or "Sem histórico de novidades."
+
+    def update_authorize(self, info):
+        """Roda na thread da tela, antes de baixar."""
+        self.require_manager()
+        self.audit("atualizacao_iniciada", info["version"])
+
+    def update_fetch_installer(self, info, progress=None):
+        """Só rede/disco (seguro em thread): baixa e confere o instalador."""
+        import tempfile
+        return updater.download_installer(info, tempfile.gettempdir() + "/ComandaFacil-update", progress,
+                                          self.update_opener)
+
+    def update_launch(self, path):
+        updater.launch_installer(path)
