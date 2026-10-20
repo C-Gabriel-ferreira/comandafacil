@@ -5,10 +5,11 @@ from PySide6.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QLabel, QPushBut
 from comandafacil.clock import minutes_since
 
 from . import dialogs as dlg
+from .ui import pill
 
 COLS = 3
 STATE_TEXT = {"enviado": "Na fila", "preparando": "Preparando", "pronto": "Pronto"}
-STATE_COLOR = {"enviado": "#f59e0b", "preparando": "#38bdf8", "pronto": "#22c55e"}
+STATE_KIND = {"enviado": "muted", "preparando": "info", "pronto": "ok"}
 
 
 def _clear(layout):
@@ -58,18 +59,21 @@ class KitchenView(QWidget):
 
     def _card(self, tk):
         f = QFrame()
-        f.setObjectName("card")
+        mins = minutes_since(tk["since"]) if tk["since"] else 0
+        level = "ok" if tk["state"] == "pronto" else self.ctrl.kitchen_level(mins)
+        f.setObjectName(f"ticket_{level}")
         v = QVBoxLayout(f)
+        v.setContentsMargins(14, 12, 14, 12)
         title = tk["table_name"] if tk["kind"] == "mesa" else f"{tk['kind'].capitalize()} #{tk['order_id']}"
         if tk["customer_name"]:
             title += f" · {tk['customer_name']}"
-        h = QLabel(f"<b>{title}</b>")
-        h.setStyleSheet("font-size:15px;")
-        mins = minutes_since(tk["since"]) if tk["since"] else 0
-        st = QLabel(f"{STATE_TEXT[tk['state']]} · há {mins} min")
-        st.setStyleSheet(f"color:{STATE_COLOR[tk['state']]};font-weight:700;")
-        v.addWidget(h)
-        v.addWidget(st)
+        top = QHBoxLayout()
+        h = QLabel(title)
+        h.setObjectName("h2")
+        top.addWidget(h, 1)
+        top.addWidget(pill(f"{mins} min", level))
+        v.addLayout(top)
+        v.addWidget(pill(STATE_TEXT[tk["state"]], STATE_KIND[tk["state"]]))
         for it in tk["items"]:
             line = f"{it['quantity']}x {it['product_name']}"
             if it["note"]:

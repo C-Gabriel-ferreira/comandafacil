@@ -7,6 +7,7 @@ from comandafacil import cash, receipt
 from comandafacil.money import format_brl
 
 from . import dialogs as dlg
+from .ui import KpiCard, set_state
 
 
 def _fmt(iso):
@@ -49,17 +50,9 @@ class CashView(QWidget):
         self.card_labels = {}
         for i, key in enumerate(("Fundo de troco", "Total vendido", "Comandas / ticket médio",
                                  "Dinheiro esperado na gaveta")):
-            f = QFrame()
-            f.setObjectName("card")
-            v = QVBoxLayout(f)
-            cap = QLabel(key)
-            cap.setObjectName("muted")
-            val = QLabel("—")
-            val.setObjectName("bigvalue")
-            v.addWidget(cap)
-            v.addWidget(val)
-            self.cards.addWidget(f, 0, i)
-            self.card_labels[key] = val
+            card = KpiCard(key, highlight=(i == 3))
+            self.cards.addWidget(card, 0, i)
+            self.card_labels[key] = card.value
 
         mid = QHBoxLayout()
         self.pay_table = self._table(["Forma de pagamento", "Valor"])
@@ -109,8 +102,7 @@ class CashView(QWidget):
             b.setVisible(is_open)
             b.setEnabled(mgr or b is self.btn_partial)
         if is_open:
-            self.state.setText(f"● Aberto desde {_fmt(sess['opened_at'])}")
-            self.state.setStyleSheet("color:#22c55e;font-weight:700;")
+            set_state(self.state, f"● Aberto desde {_fmt(sess['opened_at'])}", "ok")
             L = self.card_labels
             L["Fundo de troco"].setText(format_brl(sm["opening"]))
             L["Total vendido"].setText(format_brl(sm["sales_total"]))
@@ -121,8 +113,7 @@ class CashView(QWidget):
                                          ("+" if m["kind"] == "suprimento" else "−") + format_brl(m["amount_cents"]))
                                         for m in cash.movements(self.ctrl.conn, sess["id"])], (3,))
         else:
-            self.state.setText("● Fechado" + ("" if mgr else " — peça ao gerente para abrir"))
-            self.state.setStyleSheet("color:#ef4444;font-weight:700;")
+            set_state(self.state, "● Fechado" + ("" if mgr else " — peça ao gerente para abrir"), "bad")
             for v in self.card_labels.values():
                 v.setText("—")
             self._fill(self.pay_table, [])

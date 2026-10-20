@@ -97,7 +97,7 @@ class PdvView(QWidget):
     def _build_menu(self):
         panel, lay = self._panel()
         self.banner = QLabel()
-        self.banner.setStyleSheet("background:#7f1d1d;color:white;border-radius:8px;padding:8px;font-weight:700;")
+        self.banner.setObjectName("alert_bad")
         self.banner.setWordWrap(True)
         lay.addWidget(self.banner)
         self.search = QLineEdit()
@@ -253,7 +253,8 @@ class PdvView(QWidget):
             else:
                 text = f"{c['name']}\nLivre"
             b = QPushButton(text)
-            b.setObjectName("tableBusy" if c["busy"] else "tableFree")
+            b.setObjectName("tableReady" if c["ready"] else "tableBill" if c["bill"]
+                            else "tableBusy" if c["busy"] else "tableFree")
             b.setCheckable(True)
             b.setChecked(self._is_selected(c))
             b.clicked.connect(lambda _=False, card=c: self.select_card(card))
@@ -286,6 +287,7 @@ class PdvView(QWidget):
     def refresh_products(self, *_):
         _clear(self.prod_grid)
         prods = self.ctrl.products(self.search.text(), self.category)
+        cat_index = {c: i for i, c in enumerate(self.ctrl.categories())}
         for i, p in enumerate(prods):
             text = f"{p['name']}\n{format_brl(p['price_cents'])}"
             out = bool(p["track_stock"]) and p["stock"] <= 0
@@ -293,6 +295,7 @@ class PdvView(QWidget):
                 text += f"  ·  {'esgotado' if out else str(p['stock']) + ' un.'}"
             b = QPushButton(text)
             b.setObjectName("product")
+            b.setProperty("cat", cat_index.get(p["category"], 7) % 8)
             b.setEnabled(not out)
             b.clicked.connect(lambda _=False, pid=p["id"]: self.add_product(pid))
             self.prod_grid.addWidget(b, i // PRODUCT_COLS, i % PRODUCT_COLS)

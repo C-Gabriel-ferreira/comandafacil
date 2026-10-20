@@ -346,6 +346,14 @@ def kitchen_tickets(conn):
     return out
 
 
+def kitchen_level(conn, minutes) -> str:
+    """Faixa de espera de um pedido na cozinha: 'ok' (no prazo), 'warn' (atenção) ou 'bad' (atrasado).
+    Limites em minutos, ajustáveis nas configurações (kitchen_warn_min / kitchen_late_min)."""
+    warn = int(get_setting(conn, "kitchen_warn_min", "10") or 10)
+    late = int(get_setting(conn, "kitchen_late_min", "20") or 20)
+    return "bad" if minutes >= late else ("warn" if minutes >= warn else "ok")
+
+
 def ready_orders(conn):
     """Ids das comandas com itens prontos aguardando entrega no salão."""
     return {r[0] for r in conn.execute(

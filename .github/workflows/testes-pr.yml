@@ -1,0 +1,76 @@
+name: Testes e prints do PR
+
+# Em todo Pull Request: roda os testes, abre a interface de verdade (Qt, sem janela visível) e posta os prints
+# das telas num comentário do PR, para ver o visual sem baixar nada. Não publica release.
+on:
+  pull_request:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  testes:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Dependências
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-desktop.txt
+      - name: Testes
+        shell: pwsh
+        run: python -m unittest discover -s tests
+      - name: Teste da interface e prints
+        shell: pwsh
+        run: |
+          python comandafacil_desktop.py --selftest shots
+          Get-Content shots/selftest.txt
+          if (-not (Select-String -Path shots/selftest.txt -Pattern "SELFTEST OK" -Quiet)) { throw "Autoteste da interface falhou" }
+      - name: Guardar prints (artefato)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prints-do-pr
+          path: shots/
+          if-no-files-found: ignore
+      - name: Comentar prints no PR
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $pr = "${{ github.event.pull_request.number }}"
+          $sha = "${{ github.event.pull_request.head.sha }}".Substring(0, 7)
+          $repo = "${{ github.repository }}"
+          $dir = "pr$pr-$sha"
+          $url = "https://x-access-token:$($env:GH_TOKEN)@github.com/$repo.git"
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@users.noreply.github.com"
+          git clone --depth 1 --branch prints $url prints-branch 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            New-Item -ItemType Directory -Force prints-branch | Out-Null
+            Set-Location prints-branch
+            git init -q
+            git checkout -q --orphan prints
+            git remote add origin $url
+          } else {
+            Set-Location prints-branch
+          }
+          New-Item -ItemType Directory -Force $dir | Out-Null
+          Copy-Item ../shots/*.png $dir/
+          git add -A
+          git commit -q -m "Prints do PR #$pr ($sha)"
+          git push -q origin prints
+          Set-Location ..
+          $base = "https://raw.githubusercontent.com/$repo/prints/$dir"
+          $body = "### Prints das telas (commit $sha)`n`n"
+          foreach ($f in (Get-ChildItem shots/*.png | Sort-Object Name)) {
+            $body += "**$($f.BaseName)**`n![$($f.BaseName)]($base/$($f.Name))`n`n"
+          }
+          Set-Content -Path comment.md -Value $body -Encoding utf8
+          gh pr comment $pr --repo $repo --body-file comment.md

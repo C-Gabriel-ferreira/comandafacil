@@ -9,7 +9,10 @@ from PySide6.QtWidgets import (QComboBox, QDialog, QDialogButtonBox, QFormLayout
 from comandafacil.money import cents_to_input, format_brl, parse_money
 from comandafacil.services import PAYMENT_METHODS, BusinessError
 
+from .ui import set_state
+
 ACCEPTED = QDialog.DialogCode.Accepted
+PAY_ICONS = {"Dinheiro": "💵", "Pix": "⚡", "Cartão de débito": "💳", "Cartão de crédito": "💳", "Vale-refeição": "🎟"}
 
 
 # ----------------------------------------------------------------- utilidades
@@ -238,14 +241,19 @@ class PaymentDialog(QDialog):
         top.addLayout(left)
         top.addStretch(1)
         self.status = QLabel()
-        self.status.setObjectName("bigvalue")
+        self.status.setObjectName("pill_muted")
         self.status.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         top.addWidget(self.status)
         lay.addLayout(top)
 
+        hint = QLabel("Toque na forma de pagamento para adicionar. Pode combinar mais de uma.")
+        hint.setObjectName("muted")
+        lay.addWidget(hint)
         quick = QHBoxLayout()
+        quick.setSpacing(8)
         for m in PAYMENT_METHODS:
-            b = QPushButton(m.replace("Cartão de ", "Cartão ").replace("Vale-refeição", "Vale-ref."))
+            b = QPushButton(f"{PAY_ICONS.get(m, '•')}  {m.replace('Cartão de ', 'Cartão ').replace('Vale-refeição', 'Vale-ref.')}")
+            b.setObjectName("pay")
             b.clicked.connect(lambda _=False, method=m: self.add_line(method))
             quick.addWidget(b)
         lay.addLayout(quick)
@@ -255,6 +263,7 @@ class PaymentDialog(QDialog):
         self.rows = []
         lay.addStretch(1)
         btns, self.ok = _buttons(self, "Confirmar pagamento (Enter)")
+        self.ok.setObjectName("cta")
         self.ok.clicked.connect(self._confirm)
         lay.addLayout(btns)
         self.add_line("Dinheiro", self.total)
@@ -300,14 +309,11 @@ class PaymentDialog(QDialog):
     def refresh(self, *_):
         paid, diff = self.paid(), self.paid() - self.total
         if diff < 0:
-            self.status.setText(f"Faltam {format_brl(-diff)}")
-            self.status.setStyleSheet("color:#f59e0b;")
+            set_state(self.status, f"Faltam {format_brl(-diff)}", "warn")
         elif diff == 0:
-            self.status.setText("Valor exato ✔")
-            self.status.setStyleSheet("color:#22c55e;")
+            set_state(self.status, "Valor exato ✔", "ok")
         else:
-            self.status.setText(f"Troco {format_brl(diff)}")
-            self.status.setStyleSheet("color:#38bdf8;")
+            set_state(self.status, f"Troco {format_brl(diff)}", "info")
         self.ok.setEnabled(paid >= self.total)
 
     def _confirm(self):

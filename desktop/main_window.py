@@ -5,12 +5,14 @@ from PySide6.QtWidgets import (QApplication, QButtonGroup, QFrame, QHBoxLayout, 
 
 from . import dialogs as dlg
 from .cash_view import CashView
+from .home_view import HomeView
 from .kitchen_view import KitchenView
 from .online_view import OnlineView
 from .pdv_view import PdvView
 from .products_view import ProductsView
 from .reports_view import ReportsView
 from .theme import stylesheet
+from .ui import set_state
 from .update_view import UpdateChecker, UpdateDialog
 
 
@@ -21,7 +23,7 @@ class MainWindow(QMainWindow):
         self.server_url = server_url
         self.logged_out = False
         self.settings = QSettings("ComandaFacil", "Desktop")
-        self.dark = str(self.settings.value("dark", "true")).lower() == "true"
+        self.dark = str(self.settings.value("dark2", "false")).lower() == "true"  # claro por padrão (v2.4)
         biz = ctrl.setting("business_name", "ComandaFácil")
         self.setWindowTitle(f"{biz} — PDV")
         self.resize(1360, 820)
@@ -36,10 +38,11 @@ class MainWindow(QMainWindow):
 
         self.stack = QStackedWidget()
         self.pdv = PdvView(ctrl)
+        self.home = HomeView(ctrl, go=self.go_name, is_dark=lambda: self.dark)
         self.cash = CashView(ctrl, on_change=self.pdv.refresh_all)
         self.kitchen = KitchenView(ctrl)
         self.online = OnlineView(ctrl, on_new=self.set_online_badge, on_change=self.pdv.refresh_all)
-        self.pages = [("PDV", self.pdv, False), ("Pedidos online", self.online, False),
+        self.pages = [("Início", self.home, False), ("PDV", self.pdv, False), ("Pedidos online", self.online, False),
                       ("Cozinha", self.kitchen, False)]
         self.pages.append(("Caixa", self.cash, False))
         if ctrl.is_manager:
@@ -60,7 +63,7 @@ class MainWindow(QMainWindow):
     def _build_sidebar(self, biz):
         bar = QFrame()
         bar.setObjectName("sidebar")
-        bar.setFixedWidth(190)
+        bar.setFixedWidth(224)
         self.side = QVBoxLayout(bar)
         self.side.setContentsMargins(10, 14, 10, 14)
         title = QLabel(biz)
@@ -76,7 +79,7 @@ class MainWindow(QMainWindow):
         return bar
 
     def _add_nav(self):
-        icons = {"PDV": "🧾", "Pedidos online": "🛵", "Cozinha": "👨‍🍳", "Caixa": "💰", "Produtos": "🍔", "Relatórios": "📊"}
+        icons = {"Início": "🏠", "PDV": "🧾", "Pedidos online": "🛵", "Cozinha": "👨‍🍳", "Caixa": "💰", "Produtos": "🍔", "Relatórios": "📊"}
         for i, (name, _, _) in enumerate(self.pages):
             b = QPushButton(f"{icons.get(name, '')}  {name}")
             b.setObjectName("nav")
@@ -138,20 +141,25 @@ class MainWindow(QMainWindow):
         if b:
             b.setText("🛵  Pedidos online" + (f"  ({n})" if n else ""))
 
+    def go_name(self, name):
+        for i, (n, _, _) in enumerate(self.pages):
+            if n == name:
+                return self.go(i)
+
     def update_cash_label(self):
         if self.ctrl.cash_session():
-            self.cash_lbl.setText("● Caixa aberto")
-            self.cash_lbl.setStyleSheet("color:#22c55e;font-weight:700;")
+            set_state(self.cash_lbl, "● Caixa aberto", "ok")
         else:
-            self.cash_lbl.setText("● Caixa fechado")
-            self.cash_lbl.setStyleSheet("color:#ef4444;font-weight:700;")
+            set_state(self.cash_lbl, "● Caixa fechado", "bad")
 
     def apply_theme(self):
         QApplication.instance().setStyleSheet(stylesheet(self.dark))
+        if hasattr(self, "home"):
+            self.home.refresh()
 
     def toggle_theme(self):
         self.dark = not self.dark
-        self.settings.setValue("dark", "true" if self.dark else "false")
+        self.settings.setValue("dark2", "true" if self.dark else "false")
         self.apply_theme()
 
     def logout(self):

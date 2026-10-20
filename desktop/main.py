@@ -58,6 +58,11 @@ def start_phone_server():
     return server, f"http://{lan_ip()}:{PORT}"
 
 
+def _saved_dark() -> bool:
+    from PySide6.QtCore import QSettings
+    return str(QSettings("ComandaFacil", "Desktop").value("dark2", "false")).lower() == "true"
+
+
 def run() -> int:
     if "--selftest" in sys.argv:  # teste automático da interface (CI)
         from .selftest import run_selftest
@@ -74,7 +79,7 @@ def run() -> int:
     _prepare_environment()
     app = QApplication(sys.argv)
     app.setApplicationName("ComandaFácil")
-    app.setStyleSheet(stylesheet(True))
+    app.setStyleSheet(stylesheet(_saved_dark()))
 
     try:
         dbm.init_db()

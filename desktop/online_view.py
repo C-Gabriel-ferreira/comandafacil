@@ -15,10 +15,9 @@ from comandafacil import db as dbm, online
 from comandafacil.money import cents_to_input, format_brl
 
 from . import dialogs as dlg
+from .ui import set_state
 
 POLL_MS = 15000
-STATUS_COLOR = {"novo": "#f59e0b", "aceito": "#38bdf8", "preparo": "#38bdf8", "pronto": "#22c55e",
-                "saiu": "#a78bfa", "entregue": "#94a3b8", "recusado": "#ef4444", "cancelado": "#ef4444"}
 
 
 class _Worker:
@@ -217,12 +216,11 @@ class OnlineView(QWidget):
         self.btn_toggle.setVisible(configured)
         self.btn_toggle.setText("⏸ Pausar pedidos" if accepting else "▶ Receber pedidos")
         if not configured:
-            self.state.setText("● Não ativado")
-            self.state.setStyleSheet("color:#94a3b8;font-weight:700;")
+            set_state(self.state, "● Não ativado", "muted")
             self.banner.setText("Peça ao gerente para ativar: Configurar → colar o código de ativação.")
         else:
-            self.state.setText("● Recebendo pedidos" if accepting else "● Pausado (clientes veem “loja fechada”)")
-            self.state.setStyleSheet(f"color:{'#22c55e' if accepting else '#f59e0b'};font-weight:700;")
+            set_state(self.state, "● Recebendo pedidos" if accepting else "● Pausado (clientes veem “loja fechada”)",
+                      "ok" if accepting else "warn")
             self.banner.setText(("⚠ Sem conexão com a nuvem: " + self.last_error + " Tentando de novo…")
                                 if self.last_error else "")
         sel = self._selected_code()
