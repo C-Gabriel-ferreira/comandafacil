@@ -2,7 +2,7 @@
 import sys
 import tempfile
 import unittest
-from datetime import date
+from comandafacil.clock import today
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -40,17 +40,17 @@ class CmvTests(unittest.TestCase):
         self.set_cost("Hambúrguer", 900)        # preço 22,00 -> custo 9,00
         self.sell("Hambúrguer", 2, 1)           # receita 44,00 / custo 18,00
         self.sell("Café", 1, 2)                 # sem custo: fica fora da margem
-        rep = self.c.report(date.today(), date.today())
+        rep = self.c.report(today(), today())
         self.assertEqual((rep["cogs"], rep["profit"]), (1800, 2600))
         self.assertEqual(rep["margin_pct"], 59.1)
         self.assertEqual(rep["cost_coverage_pct"], 92)   # 44 de 48 reais têm custo
         # mudar o custo depois não altera vendas antigas
         self.set_cost("Hambúrguer", 2000)
-        self.assertEqual(self.c.report(date.today(), date.today())["cogs"], 1800)
+        self.assertEqual(self.c.report(today(), today())["cogs"], 1800)
 
     def test_no_costs_means_no_margin(self):
         self.sell("Café", 1, 1)
-        rep = self.c.report(date.today(), date.today())
+        rep = self.c.report(today(), today())
         self.assertIsNone(rep["margin_pct"])
         self.assertEqual(rep["cogs"], 0)
 
