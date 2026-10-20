@@ -152,6 +152,11 @@ class PdvView(QWidget):
         hh.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         hh.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
         lay.addWidget(self.items, 1)
+        self.sugg_box = QWidget()
+        self.sugg_row = QHBoxLayout(self.sugg_box)
+        self.sugg_row.setContentsMargins(0, 0, 0, 0)
+        lay.addWidget(self.sugg_box)
+        self.sugg_box.hide()
         ib = QHBoxLayout()
         self.btn_minus, self.btn_plus, self.btn_remove = QPushButton("−"), QPushButton("+"), QPushButton("Remover")
         self.btn_remove.setObjectName("danger")
@@ -309,6 +314,31 @@ class PdvView(QWidget):
             self.add_product(self._last_products[0]["id"])
             self.search.clear()
 
+    def refresh_suggestions(self):
+        _clear(self.sugg_row)
+        sugg = self.ctrl.suggestions(self.order_id) if self.order_id is not None else []
+        if not sugg:
+            self.sugg_box.hide()
+            return
+        cap = QLabel("Sugerir:")
+        cap.setObjectName("muted")
+        self.sugg_row.addWidget(cap)
+        for p in sugg:
+            b = QPushButton(f"+ {p['name']}")
+            b.setObjectName("chip")
+            b.setToolTip(f"Adicionar 1 · {format_brl(p['price_cents'])}")
+            b.clicked.connect(lambda _=False, pid=p["id"]: self.add_suggested(pid))
+            self.sugg_row.addWidget(b)
+        self.sugg_row.addStretch(1)
+        self.sugg_box.show()
+
+    def add_suggested(self, product_id):
+        ok, _ = dlg.attempt(self, self.ctrl.add_item, product_id, 1, "", self.order_id, self.table_id)
+        if ok:
+            self.refresh_board()
+            self.refresh_products()
+            self.refresh_order()
+
     def refresh_order(self):
         has_order = self.order_id is not None
         order = items = totals = None
@@ -316,6 +346,7 @@ class PdvView(QWidget):
             order, items, totals = self.ctrl.order_detail(self.order_id)
             if order["status"] != "aberta":      # fechada/cancelada por outro caminho
                 self.order_id, has_order = None, False
+        self.refresh_suggestions()
         self.items.setRowCount(0)
         if has_order:
             kind = services.KINDS[order["kind"]]
