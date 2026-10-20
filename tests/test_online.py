@@ -221,7 +221,7 @@ class MigrationTests(unittest.TestCase):
         dbm.configure(tempfile.mkdtemp())
         dbm.init_db()
         c = dbm.connect()
-        c.executescript("DROP TABLE online_orders; PRAGMA user_version=3;")
+        c.executescript("ALTER TABLE products DROP COLUMN cost_cents; ALTER TABLE order_items DROP COLUMN unit_cost_cents; DROP TABLE online_orders; PRAGMA user_version=3;")
         c.close()
         dbm.init_db()
         c = dbm.connect()

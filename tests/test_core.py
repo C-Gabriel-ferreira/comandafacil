@@ -182,7 +182,7 @@ class V1UpgradeTests(unittest.TestCase):
         dbm.configure(d)
         dbm.init_db()
         c = dbm.connect()
-        c.executescript("""ALTER TABLE order_items DROP COLUMN kitchen_status; ALTER TABLE order_items DROP COLUMN sent_at;
+        c.executescript("""ALTER TABLE products DROP COLUMN cost_cents; ALTER TABLE order_items DROP COLUMN unit_cost_cents; ALTER TABLE order_items DROP COLUMN kitchen_status; ALTER TABLE order_items DROP COLUMN sent_at;
             ALTER TABLE order_items DROP COLUMN ready_at; ALTER TABLE orders DROP COLUMN bill_requested_at;
             PRAGMA user_version=1;""")
         c.close()

@@ -41,7 +41,7 @@ DATA_DIR = Path(os.environ.get("COMANDAFACIL_DATA_DIR") or _default_data)
 DB_PATH = DATA_DIR / "comandas.db"
 BACKUP_DIR = DATA_DIR / "backups"
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 # Controle de caixa (v3, só SQLite — usado pelo programa desktop): turnos e sangria/suprimento.
 CASH_SQL = """
@@ -93,6 +93,10 @@ MIGRATIONS: dict[int, str] = {
     """,
     3: CASH_SQL,
     4: ONLINE_SQL,
+    5: """
+    ALTER TABLE products ADD COLUMN cost_cents INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE order_items ADD COLUMN unit_cost_cents INTEGER NOT NULL DEFAULT 0;
+    """,
 }
 
 DEFAULT_SETTINGS = {
@@ -279,7 +283,8 @@ CREATE TABLE products (
     available INTEGER NOT NULL DEFAULT 1,
     track_stock INTEGER NOT NULL DEFAULT 0,
     stock INTEGER NOT NULL DEFAULT 0,
-    stock_min INTEGER NOT NULL DEFAULT 0
+    stock_min INTEGER NOT NULL DEFAULT 0,
+    cost_cents INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE tables (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -316,7 +321,8 @@ CREATE TABLE order_items (
     note TEXT NOT NULL DEFAULT '',
     created_at TEXT,
     kitchen_status TEXT NOT NULL DEFAULT 'novo',
-    sent_at TEXT, ready_at TEXT
+    sent_at TEXT, ready_at TEXT,
+    unit_cost_cents INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX idx_items_order ON order_items(order_id);
 CREATE TABLE payments (

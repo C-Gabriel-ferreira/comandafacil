@@ -47,7 +47,7 @@ class ReportsView(QWidget):
         lay.addLayout(head)
         self.cards = {}
         row = QHBoxLayout()
-        for key in ("Faturamento", "Comandas", "Ticket médio", "Cancelamentos"):
+        for key in ("Faturamento", "Comandas", "Ticket médio", "Cancelamentos", "Custo (CMV)", "Margem"):
             f = QFrame()
             f.setObjectName("card")
             v = QVBoxLayout(f)
@@ -104,6 +104,13 @@ class ReportsView(QWidget):
         self.cards["Comandas"].setText(str(rep["orders"]))
         self.cards["Ticket médio"].setText(format_brl(rep["avg"]))
         self.cards["Cancelamentos"].setText(f"{rep['cancelled_n']}  ({format_brl(rep['cancelled_value'])})")
+        if rep["margin_pct"] is None:
+            self.cards["Custo (CMV)"].setText("—")
+            self.cards["Margem"].setText("—")
+        else:
+            self.cards["Custo (CMV)"].setText(format_brl(rep["cogs"]))
+            self.cards["Margem"].setText(f"{rep['margin_pct']:.0f}%")
+            self.cards["Margem"].setToolTip(f"Calculada sobre {rep['cost_coverage_pct']}% das vendas (itens com custo cadastrado)")
         self._fill(self.t_pay, [(r["label"], r["n"], format_brl(r["value"])) for r in rep["by_payment"]])
         self._fill(self.t_kind, [(services.KINDS.get(r["label"], r["label"]), r["n"], format_brl(r["value"]))
                                  for r in rep["by_kind"]])

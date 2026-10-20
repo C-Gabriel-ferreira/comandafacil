@@ -2,6 +2,9 @@
 
 Cada versão nova aparece dentro do programa (botão "Novidades") e pode ser instalada por cima, sem perder dados.
 
+## 2.6.0 — 20/10/2026
+- **Custo e margem de lucro:** no cadastro do produto há o campo "Custo (R$)" (opcional) e a margem aparece na hora. A lista de produtos mostra a margem de cada um e os Relatórios ganharam "Custo (CMV)" e "Margem" do período. O custo é gravado em cada venda, então mudar o custo depois não altera relatórios antigos, e produtos sem custo cadastrado ficam fora da conta.
+
 ## 2.5.0 — 20/10/2026
 - **Impressão automática dos pedidos online:** em Pedidos online → Configurar, marque "Imprimir a ficha automaticamente ao aceitar" e escolha a impressora. Ao aceitar um pedido, a ficha sai na hora, sem janelas. Se a impressora falhar, o programa avisa e abre a ficha para imprimir manualmente.
 

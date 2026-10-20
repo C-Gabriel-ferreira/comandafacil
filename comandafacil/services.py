@@ -121,13 +121,15 @@ def add_item(conn, order_id, product_id, qty, note="", user_id=None):
             _stock_move(conn, p["id"], -qty, "venda", order_id, user_id)
         same = conn.execute(
             "SELECT id, quantity FROM order_items WHERE order_id=? AND product_id=? "
-            "AND unit_price_cents=? AND note=? AND kitchen_status='novo'", (order_id, p["id"], p["price_cents"], note)).fetchone()
+            "AND unit_price_cents=? AND unit_cost_cents=? AND note=? AND kitchen_status='novo'",
+            (order_id, p["id"], p["price_cents"], p["cost_cents"], note)).fetchone()
         if same and same["quantity"] + qty <= MAX_QTY:
             conn.execute("UPDATE order_items SET quantity=quantity+? WHERE id=?", (qty, same["id"]))
         else:
             conn.execute(
-                "INSERT INTO order_items(order_id,product_id,product_name,unit_price_cents,quantity,note,created_at)"
-                " VALUES (?,?,?,?,?,?,?)", (order_id, p["id"], p["name"], p["price_cents"], qty, note, now()))
+                "INSERT INTO order_items(order_id,product_id,product_name,unit_price_cents,quantity,note,created_at,"
+                "unit_cost_cents) VALUES (?,?,?,?,?,?,?,?)",
+                (order_id, p["id"], p["name"], p["price_cents"], qty, note, now(), p["cost_cents"]))
 
 
 def _open_item(conn, item_id):
@@ -453,6 +455,20 @@ def sales_report(conn, start: date, end: date) -> dict:
         "FROM order_items i JOIN orders o ON o.id=i.order_id "
         "WHERE o.status='fechada' AND o.closed_at >= ? AND o.closed_at < ? "
         "GROUP BY i.product_name ORDER BY n DESC, value DESC LIMIT 15", (a, b)).fetchall(), key="n")
+    # custo e margem: só itens com custo cadastrado entram na conta (os demais não distorcem a margem)
+    m = conn.execute(
+        "SELECT COALESCE(SUM(i.unit_cost_cents*i.quantity),0) cogs, "
+        "COALESCE(SUM(i.unit_price_cents*i.quantity),0) rev "
+        "FROM order_items i JOIN orders o ON o.id=i.order_id "
+        "WHERE o.status='fechada' AND o.closed_at >= ? AND o.closed_at < ? AND i.unit_cost_cents > 0",
+        (a, b)).fetchone()
+    rev_all = conn.execute(
+        "SELECT COALESCE(SUM(i.unit_price_cents*i.quantity),0) FROM order_items i JOIN orders o ON o.id=i.order_id "
+        "WHERE o.status='fechada' AND o.closed_at >= ? AND o.closed_at < ?", (a, b)).fetchone()[0]
+    rep["cogs"] = m["cogs"]
+    rep["profit"] = m["rev"] - m["cogs"]
+    rep["margin_pct"] = round((m["rev"] - m["cogs"]) * 100 / m["rev"], 1) if m["rev"] else None
+    rep["cost_coverage_pct"] = round(m["rev"] * 100 / rev_all) if rev_all else 0
     c = conn.execute("SELECT COUNT(*) n, COALESCE(SUM(total_cents),0) v FROM orders "
                      "WHERE status='cancelada' AND cancelled_at >= ? AND cancelled_at < ?", (a, b)).fetchone()
     rep["cancelled_n"], rep["cancelled_value"] = c["n"], c["v"]

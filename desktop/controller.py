@@ -254,31 +254,34 @@ class Controller:
     def all_products(self):
         return self.conn.execute("SELECT * FROM products ORDER BY category, name").fetchall()
 
-    def save_product(self, product_id, name, category, price_cents, available, track_stock, stock, stock_min):
+    def save_product(self, product_id, name, category, price_cents, available, track_stock, stock, stock_min,
+                     cost_cents=0):
         self.require_manager()
         name, category = (name or "").strip(), (category or "").strip() or "Outros"
         if not name:
             raise BusinessError("Informe o nome do produto.")
         if price_cents < 0:
             raise BusinessError("Preço inválido.")
+        if cost_cents < 0:
+            raise BusinessError("Custo inválido.")
         if product_id:
             with transaction(self.conn):
                 old = self.conn.execute("SELECT * FROM products WHERE id=?", (product_id,)).fetchone()
                 if not old:
                     raise BusinessError("Produto não encontrado.")
                 self.conn.execute(
-                    "UPDATE products SET name=?,category=?,price_cents=?,available=?,track_stock=?,stock_min=? "
+                    "UPDATE products SET name=?,category=?,price_cents=?,available=?,track_stock=?,stock_min=?,cost_cents=? "
                     "WHERE id=?", (name, category, price_cents, int(available), int(track_stock),
-                                   int(stock_min), product_id))
+                                   int(stock_min), int(cost_cents), product_id))
                 if track_stock and stock != old["stock"]:
                     services._stock_move(self.conn, product_id, stock - old["stock"], "ajuste manual",
                                          None, self.user_id)
         else:
             cur = self.conn.execute(
-                "INSERT INTO products(name,category,price_cents,available,track_stock,stock,stock_min) "
-                "VALUES (?,?,?,?,?,?,?)",
+                "INSERT INTO products(name,category,price_cents,available,track_stock,stock,stock_min,cost_cents) "
+                "VALUES (?,?,?,?,?,?,?,?)",
                 (name, category, price_cents, int(available), int(track_stock),
-                 int(stock) if track_stock else 0, int(stock_min)))
+                 int(stock) if track_stock else 0, int(stock_min), int(cost_cents)))
             product_id = cur.lastrowid
         self.audit("produto_salvo", f"{name} ({format_brl(price_cents)})")
         return product_id
