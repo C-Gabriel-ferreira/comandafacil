@@ -86,10 +86,16 @@ class CloudClient:
             raise BusinessError("Pedidos online ainda não foram ativados. Cole o código de ativação.")
         return cls(*(get_setting(conn, k) for k in CFG_KEYS), transport=transport)
 
+    def _headers(self):
+        h = {"apikey": self.key, "Content-Type": "application/json"}
+        if self.key.startswith("eyJ"):       # chave legada (JWT); as novas "sb_publishable_" não vão em Authorization
+            h["Authorization"] = f"Bearer {self.key}"
+        return h
+
     def _http(self, fn, payload):
         req = urllib.request.Request(
             self.base + fn, data=json.dumps(payload).encode(), method="POST",
-            headers={"apikey": self.key, "Authorization": f"Bearer {self.key}", "Content-Type": "application/json"})
+            headers=self._headers())
         try:
             with urllib.request.urlopen(req, timeout=self.timeout) as r:
                 return json.loads(r.read() or "null")
