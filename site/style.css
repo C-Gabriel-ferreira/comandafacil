@@ -152,3 +152,11 @@ a{color:inherit}
   html{scroll-behavior:auto}
   .btn,.ticket.paid .stamp{transition:none}
 }
+
+.news{padding:4rem 0}
+.news-list{display:grid;gap:1rem;margin-top:1.4rem}
+.news-item{background:var(--paper);border:2px solid var(--ink);border-radius:16px;padding:1.2rem 1.4rem}
+.news-item h3{margin:0 0 .5rem}
+.news-item ul{margin:0;padding-left:1.2rem;color:var(--muted)}
+.news-item li{margin:.3rem 0}
+.news-item b{color:var(--ink)}
