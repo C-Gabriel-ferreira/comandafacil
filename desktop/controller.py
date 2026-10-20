@@ -296,6 +296,9 @@ class Controller:
         self.require_manager()
         return services.sales_report(self.conn, start, end)
 
+    def suggestions(self, order_id, limit=3):
+        return services.suggestions(self.conn, order_id, limit)
+
     def low_stock(self):
         return services.low_stock_products(self.conn)
 

@@ -2,6 +2,9 @@
 
 Cada versão nova aparece dentro do programa (botão "Novidades") e pode ser instalada por cima, sem perder dados.
 
+## 2.7.0 — 20/10/2026
+- **Sugestão de venda adicional no PDV:** com a comanda aberta, aparecem até 3 botões "+ produto" com o que mais sai junto com os itens já pedidos (calculado pelas suas vendas). Um toque adiciona 1 unidade. Sem histórico, sugere os mais vendidos; itens indisponíveis ou sem estoque nunca são sugeridos.
+
 ## 2.6.0 — 20/10/2026
 - **Custo e margem de lucro:** no cadastro do produto há o campo "Custo (R$)" (opcional) e a margem aparece na hora. A lista de produtos mostra a margem de cada um e os Relatórios ganharam "Custo (CMV)" e "Margem" do período. O custo é gravado em cada venda, então mudar o custo depois não altera relatórios antigos, e produtos sem custo cadastrado ficam fora da conta.
 

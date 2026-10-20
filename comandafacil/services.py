@@ -427,6 +427,32 @@ def _range(start: date, end: date):
     return start.isoformat(), (end + timedelta(days=1)).isoformat()
 
 
+def suggestions(conn, order_id, limit=3):
+    """Produtos que mais saem junto com o que já está na comanda (histórico de comandas fechadas).
+    Sem histórico, sugere os mais vendidos. Nunca sugere o que já está na comanda ou está indisponível."""
+    in_order = [r[0] for r in conn.execute(
+        "SELECT DISTINCT product_id FROM order_items WHERE order_id=? AND product_id IS NOT NULL", (order_id,))]
+    if not in_order:
+        return []
+    marks = ",".join("?" * len(in_order))
+    rows = conn.execute(
+        f"SELECT p.*, COUNT(DISTINCT j.order_id) AS together FROM order_items j "
+        f"JOIN order_items k ON k.order_id=j.order_id AND k.product_id IN ({marks}) "
+        f"JOIN orders o ON o.id=j.order_id AND o.status='fechada' "
+        f"JOIN products p ON p.id=j.product_id "
+        f"WHERE j.product_id NOT IN ({marks}) AND p.available=1 AND (p.track_stock=0 OR p.stock>0) "
+        f"GROUP BY p.id ORDER BY together DESC, p.name LIMIT ?", (*in_order, *in_order, limit)).fetchall()
+    if len(rows) < limit:
+        have = [r["id"] for r in rows] + in_order
+        m2 = ",".join("?" * len(have))
+        rows += conn.execute(
+            f"SELECT p.*, 0 AS together FROM products p LEFT JOIN order_items i ON i.product_id=p.id "
+            f"WHERE p.id NOT IN ({m2}) AND p.available=1 AND (p.track_stock=0 OR p.stock>0) "
+            f"GROUP BY p.id ORDER BY COALESCE(SUM(i.quantity),0) DESC, p.name LIMIT ?",
+            (*have, limit - len(rows))).fetchall()
+    return rows
+
+
 def sales_report(conn, start: date, end: date) -> dict:
     a, b = _range(start, end)
     base = "FROM orders o WHERE o.status='fechada' AND o.closed_at >= ? AND o.closed_at < ?"
