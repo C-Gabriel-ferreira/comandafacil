@@ -17,6 +17,7 @@ def run_selftest(outdir) -> int:
     out.mkdir(parents=True, exist_ok=True)
     log = out / "selftest.txt"
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    os.environ["COMANDAFACIL_NO_UPDATE_CHECK"] = "1"   # o autoteste nunca fala com a internet
     try:
         from PySide6.QtWidgets import QApplication
 
@@ -25,6 +26,7 @@ def run_selftest(outdir) -> int:
         from .controller import Controller
         from .main_window import MainWindow
         from .theme import stylesheet
+        from .update_view import UpdateDialog
 
         dbm.configure(tempfile.mkdtemp())
         dbm.init_db()
@@ -80,6 +82,29 @@ def run_selftest(outdir) -> int:
         assert ctrl.online_new_count() == 2
         ticket = ctrl.online_ticket("SELFTEST01")
         assert "PEDIDO ONLINE #12" in ticket
+        # atualização: GitHub falso anunciando uma versão nova
+        import io
+        import json as _json
+
+        class _R(io.BytesIO):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                self.close()
+
+        ctrl.update_opener = lambda req, timeout=0: _R(_json.dumps({
+            "tag_name": "v99.0.0", "body": "- Novidade de exemplo para o autoteste\n- Outra melhoria",
+            "html_url": "https://github.com/x/y/releases/tag/v99.0.0", "assets": []}).encode())
+        info = ctrl.update_fetch()
+        assert info and info["version"] == "99.0.0"
+        win.set_update(info)
+        up = UpdateDialog(ctrl, info, win)
+        up.show()
+        app.processEvents()
+        up.grab().save(str(out / "atualizacao.png"))
+        up.close()
+        win.grab().save(str(out / "barra-lateral-atualizacao.png"))
         win.go(0)
         win.dark = False
         win.apply_theme()

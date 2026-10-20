@@ -30,3 +30,8 @@ automática · divisão de conta por item · NFC-e/SAT · tela de usuários e co
 
 ## Testes
 `python -m unittest discover -s tests -v` — inclui `tests/test_desktop_logic.py` (caixa, cupom, permissões, login).
+
+## Atualizações
+O programa instalado avisa sozinho quando sai versão nova (botão na barra lateral, embaixo). O gerente clica em
+**Atualizar agora**: o instalador é baixado, conferido (SHA-256) e instalado por cima, mantendo dados e backups.
+O botão **Novidades** mostra o histórico de cada versão. Para lançar uma versão, veja `RELEASE.md`.

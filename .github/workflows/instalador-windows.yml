@@ -4,7 +4,7 @@ name: Instalador Windows
 on:
   push:
     branches: [main]
-    paths: [VERSION]
+    paths: [VERSION, CHANGELOG.md]
   workflow_dispatch:
 
 permissions:
@@ -63,12 +63,26 @@ jobs:
           choco install innosetup -y --no-progress
           & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=${{ steps.v.outputs.version }}" installer/comandafacil.iss
           if (-not (Test-Path dist/ComandaFacil-Setup.exe)) { throw "Instalador não foi gerado" }
+      - name: Notas da versão e SHA-256
+        shell: pwsh
+        run: |
+          $v = "${{ steps.v.outputs.version }}"
+          $hash = (Get-FileHash dist/ComandaFacil-Setup.exe -Algorithm SHA256).Hash.ToLower()
+          "$hash  ComandaFacil-Setup.exe" | Out-File -Encoding ascii dist/ComandaFacil-Setup.exe.sha256
+          $notes = ""; $on = $false
+          foreach ($line in Get-Content CHANGELOG.md -Encoding utf8) {
+            if ($line -match '^##\s+v?(\d+\.\d+\.\d+)') { $on = ($Matches[1] -eq $v); continue }
+            if ($on) { $notes += $line + "`n" }
+          }
+          if (-not $notes.Trim()) { throw "CHANGELOG.md não tem a seção da versão $v. Escreva as novidades antes de lançar." }
+          $notes += "`n---`nInstalador do ComandaFácil para Windows 10/11 (HelpTech). Quem já tem o programa instalado recebe o aviso de atualização dentro dele. Instalação nova: baixe `ComandaFacil-Setup.exe` e execute (se o SmartScreen avisar: Mais informações > Executar assim mesmo).`nSHA-256: $hash`n"
+          Set-Content -Path release-notes.md -Value $notes -Encoding utf8
       - name: Publicar release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.v.outputs.version }}
           name: ComandaFácil ${{ steps.v.outputs.version }}
-          body: |
-            Instalador do ComandaFácil para Windows 10/11 (HelpTech): PDV em janela para o caixa + acesso pelo celular dos garçons.
-            Baixe `ComandaFacil-Setup.exe` e execute. Se o Windows exibir um aviso do SmartScreen, clique em "Mais informações" e depois em "Executar assim mesmo".
-          files: dist/ComandaFacil-Setup.exe
+          body_path: release-notes.md
+          files: |
+            dist/ComandaFacil-Setup.exe
+            dist/ComandaFacil-Setup.exe.sha256

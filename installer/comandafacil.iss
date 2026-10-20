@@ -22,6 +22,8 @@ WizardStyle=modern
 ArchitecturesInstallIn64BitMode=x64compatible
 UninstallDisplayIcon={app}\ComandaFacil.exe
 DisableProgramGroupPage=yes
+CloseApplications=yes
+RestartApplications=no
 
 [Languages]
 Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"
@@ -39,3 +41,5 @@ Name: "{autoprograms}\{#AppName} - pasta de dados e backups"; Filename: "{locala
 
 [Run]
 Filename: "{app}\ComandaFacil.exe"; Description: "Abrir o ComandaFácil agora"; Flags: nowait postinstall skipifsilent
+; Atualização pelo próprio programa (modo silencioso): reabre o PDV ao terminar.
+Filename: "{app}\ComandaFacil.exe"; Flags: nowait; Check: WizardSilent

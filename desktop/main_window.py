@@ -11,6 +11,7 @@ from .pdv_view import PdvView
 from .products_view import ProductsView
 from .reports_view import ReportsView
 from .theme import stylesheet
+from .update_view import UpdateChecker, UpdateDialog
 
 
 class MainWindow(QMainWindow):
@@ -49,6 +50,9 @@ class MainWindow(QMainWindow):
             self.stack.addWidget(w)
         lay.addWidget(self.stack, 1)
         self._add_nav()
+        self.update_info = None
+        self.checker = UpdateChecker(ctrl, self.set_update)
+        self.checker.start()
         self.go(0)
         self.apply_theme()
 
@@ -91,6 +95,9 @@ class MainWindow(QMainWindow):
         who = QLabel(f"{self.ctrl.user['display_name']}\n({self.ctrl.user['role']})")
         who.setObjectName("muted")
         self.side.addWidget(who)
+        self.btn_update = QPushButton(f"ℹ  v{self.ctrl.app_version()} · Novidades")
+        self.btn_update.clicked.connect(self.show_updates)
+        self.side.addWidget(self.btn_update)
         theme = QPushButton("☀/🌙  Tema")
         theme.clicked.connect(self.toggle_theme)
         out = QPushButton("Trocar usuário")
@@ -110,6 +117,21 @@ class MainWindow(QMainWindow):
                 getattr(page, method)()
                 break
         self.update_cash_label()
+
+    def set_update(self, info):
+        self.update_info = info
+        if info:
+            self.btn_update.setText(f"⬆  Atualização {info['version']} disponível")
+            self.btn_update.setObjectName("primary")
+        else:
+            self.btn_update.setText(f"ℹ  v{self.ctrl.app_version()} · Novidades")
+            self.btn_update.setObjectName("")
+        self.btn_update.setStyleSheet(self.btn_update.styleSheet())  # reaplica o estilo do objectName
+        self.btn_update.style().unpolish(self.btn_update)
+        self.btn_update.style().polish(self.btn_update)
+
+    def show_updates(self):
+        UpdateDialog(self.ctrl, self.update_info, self).exec()
 
     def set_online_badge(self, n):
         b = self.nav_buttons.get("Pedidos online")
