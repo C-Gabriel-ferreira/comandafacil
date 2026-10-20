@@ -47,6 +47,10 @@ def run_selftest(outdir) -> int:
         ctrl.send_to_kitchen(oid)
         ctrl.add_item(prods[2], 1, order_id=oid)
         ctrl.new_counter_order("delivery", "Ana Souza", "94991016248", "Rua das Flores, 100", 500)
+        # vendas fechadas de exemplo, para a tela inicial e os relatórios mostrarem dados
+        for tid, pid, qty in ((5, prods[0], 2), (6, prods[1], 3), (7, prods[2], 1)):
+            paid = ctrl.add_item(pid, qty, table_id=tid)
+            ctrl.pay(paid, [("Pix", ctrl.order_detail(paid)[2]["total"])])
 
         # pedidos online de exemplo (nuvem falsa: nada sai da máquina)
         from comandafacil import online

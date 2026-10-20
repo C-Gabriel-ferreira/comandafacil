@@ -27,6 +27,8 @@ jobs:
         run: python -m unittest discover -s tests
       - name: Teste da interface e prints
         shell: pwsh
+        env:
+          QT_QPA_PLATFORM: windows   # plataforma real do Windows: usa as fontes de verdade nos prints
         run: |
           python comandafacil_desktop.py --selftest shots
           Get-Content shots/selftest.txt
