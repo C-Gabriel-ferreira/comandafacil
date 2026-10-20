@@ -12,7 +12,7 @@ from comandafacil.money import format_brl
 
 from . import dialogs as dlg
 
-BOARD_COLS, PRODUCT_COLS = 3, 3
+BOARD_COLS, PRODUCT_COLS = 3, 2
 
 
 def _clear(layout):
@@ -29,6 +29,7 @@ def _scroll(inner: QWidget) -> QScrollArea:
     area.setWidgetResizable(True)
     area.setWidget(inner)
     area.setFrameShape(QFrame.Shape.NoFrame)
+    area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
     return area
 
 
@@ -53,7 +54,7 @@ class PdvView(QWidget):
         root = QHBoxLayout(self)
         root.setContentsMargins(12, 12, 12, 12)
         root.setSpacing(12)
-        root.addWidget(self._build_board(), 3)
+        root.addWidget(self._build_board(), 4)
         root.addWidget(self._build_menu(), 4)
         root.addWidget(self._build_order(), 4)
 
@@ -243,7 +244,7 @@ class PdvView(QWidget):
         cards = [c for c in self.ctrl.board() if self.kind_filter in ("todos", c["kind"])]
         for i, c in enumerate(cards):
             if c["busy"]:
-                text = f"{c['name']}\n{format_brl(c['total'])} · {c['minutes']} min"
+                text = f"{c['name']}\n{format_brl(c['total'])}\n{c['minutes']} min"
                 if c["who"]:
                     text += f"\n{c['who'][:18]}"
                 if c["ready"]:
