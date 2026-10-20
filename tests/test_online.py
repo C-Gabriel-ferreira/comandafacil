@@ -106,6 +106,13 @@ class FlowTests(OnlineBase):
         self.assertFalse(self.cloud.settings["pickup_enabled"])
         self.assertEqual(self.cloud.settings["min_order_cents"], 1500)
 
+    def test_autoprint_setting_default_and_save(self):
+        self.assertEqual(self.c.online_autoprint(), (False, ""))
+        self.c.online_save_settings(True, True, 0, 0, "", "", "", autoprint=True, printer="Cozinha 80mm")
+        self.assertEqual(self.c.online_autoprint(), (True, "Cozinha 80mm"))
+        self.c.online_save_settings(True, True, 0, 0, "", "", "")
+        self.assertEqual(self.c.online_autoprint(), (False, ""))
+
     def test_only_manager_publishes_and_activates(self):
         self.c.logout()
         with self.assertRaises(BusinessError):

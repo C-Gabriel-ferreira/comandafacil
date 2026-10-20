@@ -313,7 +313,7 @@ class Controller:
         online.deactivate(self.conn)
         self.audit("online_desativado")
 
-    def online_save_settings(self, delivery, pickup, fee_cents, min_cents, hours, notice, site_url=""):
+    def online_save_settings(self, delivery, pickup, fee_cents, min_cents, hours, notice, site_url="", autoprint=False, printer=""):
         self.require_manager()
         d = self.conn
         dbm.set_setting(d, "online_delivery", "1" if delivery else "0")
@@ -323,6 +323,8 @@ class Controller:
         dbm.set_setting(d, "online_hours", (hours or "").strip()[:200])
         dbm.set_setting(d, "online_notice", (notice or "").strip()[:300])
         dbm.set_setting(d, "online_site", (site_url or "").strip())
+        dbm.set_setting(d, "online_autoprint", "1" if autoprint else "0")
+        dbm.set_setting(d, "online_printer", (printer or "").strip()[:120])
 
     def online_publish(self):
         self.require_manager()
@@ -368,6 +370,10 @@ class Controller:
 
     def online_wa(self, code):
         return online.wa_message(self.conn, code)
+
+    def online_autoprint(self):
+        """(ligado, nome da impressora; vazio = padrão do Windows)."""
+        return self.setting("online_autoprint", "0") == "1", self.setting("online_printer", "")
 
     def online_ticket(self, code):
         return receipt.build_online_ticket(self.conn, online.get(self.conn, code))

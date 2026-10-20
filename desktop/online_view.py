@@ -7,7 +7,7 @@ from urllib.parse import quote
 
 from PySide6.QtCore import QTimer, QUrl
 from PySide6.QtGui import QDesktopServices, QGuiApplication
-from PySide6.QtWidgets import (QAbstractItemView, QApplication, QCheckBox, QDialog, QFormLayout, QFrame, QHBoxLayout,
+from PySide6.QtWidgets import (QAbstractItemView, QApplication, QCheckBox, QComboBox, QDialog, QFormLayout, QFrame, QHBoxLayout,
                                QHeaderView, QLabel, QLineEdit, QPlainTextEdit, QPushButton, QTableWidget,
                                QTableWidgetItem, QVBoxLayout, QWidget)
 
@@ -84,6 +84,17 @@ class OnlineConfigDialog(QDialog):
         form.addRow("Horário (texto)", self.hours)
         form.addRow("Aviso no cardápio", self.notice)
         form.addRow("Endereço do site", self.site)
+        on, name = ctrl.online_autoprint()
+        self.autoprint = QCheckBox("Imprimir a ficha automaticamente ao aceitar o pedido")
+        self.autoprint.setChecked(on)
+        self.printer = QComboBox()
+        self.printer.addItem("Impressora padrão do Windows", "")
+        names = dlg.printer_names()
+        for n in names:
+            self.printer.addItem(n, n)
+        self.printer.setCurrentIndex(names.index(name) + 1 if name in names else 0)
+        form.addRow(self.autoprint)
+        form.addRow("Impressora da ficha", self.printer)
         lay.addLayout(form)
         row, ok = dlg._buttons(self, "Salvar")
         ok.clicked.connect(self._save)
@@ -99,7 +110,7 @@ class OnlineConfigDialog(QDialog):
                 return
         ok, _ = dlg.attempt(self, self.ctrl.online_save_settings, self.delivery.isChecked(),
                             self.pickup.isChecked(), fee, minimum, self.hours.text(), self.notice.text(),
-                            self.site.text())
+                            self.site.text(), self.autoprint.isChecked(), self.printer.currentData() or "")
         if ok:
             self.accept()
 
@@ -311,10 +322,21 @@ class OnlineView(QWidget):
         ok, oid = dlg.attempt(self, self.ctrl.online_accept, o["code"])
         if ok:
             self.on_change()
-            if dlg.confirm(self, "Pedido aceito e enviado à cozinha.\nImprimir a ficha agora?", "Aceito"):
-                dlg.ReceiptDialog(self.ctrl.online_ticket(o["code"]), self, f"Pedido online #{o['seq']}").exec()
+            self._after_accept(o)
             self._sync_now()
         self.refresh()
+
+    def _after_accept(self, o):
+        text = self.ctrl.online_ticket(o["code"])
+        on, printer = self.ctrl.online_autoprint()
+        if on:
+            if dlg.print_silent(text, printer):
+                return
+            dlg.warn(self, "Pedido aceito, mas não consegui imprimir automaticamente.\n"
+                           "Confira a impressora em Configurar. A ficha será aberta para imprimir manualmente.")
+            dlg.ReceiptDialog(text, self, f"Pedido online #{o['seq']}").exec()
+        elif dlg.confirm(self, "Pedido aceito e enviado à cozinha.\nImprimir a ficha agora?", "Aceito"):
+            dlg.ReceiptDialog(text, self, f"Pedido online #{o['seq']}").exec()
 
     def reject_order(self):
         o = self._selected()

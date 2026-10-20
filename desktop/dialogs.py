@@ -1,7 +1,7 @@
 """Diálogos do PDV: login, primeiro acesso, pagamento, cliente, caixa, impressão etc."""
 from PySide6.QtCore import QSizeF, Qt
 from PySide6.QtGui import QFont, QPageSize, QTextDocument
-from PySide6.QtPrintSupport import QPrintDialog, QPrinter
+from PySide6.QtPrintSupport import QPrintDialog, QPrinter, QPrinterInfo
 from PySide6.QtWidgets import (QComboBox, QDialog, QDialogButtonBox, QFormLayout, QFrame, QHBoxLayout,
                                QInputDialog, QLabel, QLineEdit, QMessageBox, QPlainTextEdit, QPushButton,
                                QSpinBox, QVBoxLayout, QWidget)
@@ -395,6 +395,33 @@ def print_text(parent, text, width_mm=80) -> bool:
     doc.setPlainText(text)
     (getattr(doc, "print_", None) or doc.print)(printer)
     return True
+
+
+def printer_names() -> list:
+    return [p.printerName() for p in QPrinterInfo.availablePrinters()]
+
+
+def print_silent(text, printer_name="", width_mm=80) -> bool:
+    """Imprime direto, sem diálogo, na impressora escolhida (ou na padrão). False se não achar impressora."""
+    try:
+        info = None
+        if printer_name:
+            info = next((p for p in QPrinterInfo.availablePrinters() if p.printerName() == printer_name), None)
+        info = info or QPrinterInfo.defaultPrinter()
+        if info.isNull():
+            return False
+        printer = QPrinter(info, QPrinter.PrinterMode.HighResolution)
+        printer.setPageSize(QPageSize(QSizeF(width_mm, 300), QPageSize.Unit.Millimeter, "Cupom"))
+        doc = QTextDocument()
+        font = QFont("Consolas")
+        font.setStyleHint(QFont.StyleHint.Monospace)
+        font.setPointSizeF(7.5 if width_mm >= 80 else 6.5)
+        doc.setDefaultFont(font)
+        doc.setPlainText(text)
+        (getattr(doc, "print_", None) or doc.print)(printer)
+        return True
+    except Exception:
+        return False
 
 
 class ReceiptDialog(QDialog):

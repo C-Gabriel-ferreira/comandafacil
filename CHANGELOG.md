@@ -2,6 +2,9 @@
 
 Cada versão nova aparece dentro do programa (botão "Novidades") e pode ser instalada por cima, sem perder dados.
 
+## 2.5.0 — 20/10/2026
+- **Impressão automática dos pedidos online:** em Pedidos online → Configurar, marque "Imprimir a ficha automaticamente ao aceitar" e escolha a impressora. Ao aceitar um pedido, a ficha sai na hora, sem janelas. Se a impressora falhar, o programa avisa e abre a ficha para imprimir manualmente.
+
 ## 2.4.0 — 20/10/2026
 - **Visual novo, mais limpo:** tema claro como padrão (o escuro continua no botão Tema), cartões arredondados, laranja da marca, textos e botões maiores para toque.
 - **Tela inicial:** vendido hoje (com comparação com ontem), comandas fechadas e ticket médio, comandas em aberto, vendas por hora, mais vendidos e uma lista do que precisa de atenção (caixa fechado, pedidos online novos, estoque baixo, cozinha atrasada).
