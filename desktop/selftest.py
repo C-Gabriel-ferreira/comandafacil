@@ -39,6 +39,29 @@ def run_selftest(outdir) -> int:
         ctrl.add_item(prods[2], 1, order_id=oid)
         ctrl.new_counter_order("delivery", "Ana Souza", "94991016248", "Rua das Flores, 100", 500)
 
+        # pedidos online de exemplo (nuvem falsa: nada sai da máquina)
+        from comandafacil import online
+
+        def fake_cloud(fn, p):
+            if fn == "cf_pdv_pull_orders":
+                item = lambda i, q, pr, n: {"id": i, "qty": q, "price_cents": pr, "name": n, "note": ""}  # noqa: E731
+                return {"ok": True, "accepting": True, "orders": [
+                    {"code": "SELFTEST01", "seq": 12, "kind": "entrega", "name": "Carla Dias", "phone": "94988887777",
+                     "address": "Av. Brasil, 250 - Centro", "note": "Tocar a campainha", "payment": "Dinheiro",
+                     "change_for_cents": 10000, "subtotal_cents": 4400, "delivery_fee_cents": 500,
+                     "total_cents": 4900, "created_at": "2026-01-01T19:30:00-03:00",
+                     "items": [item(prods[0], 2, 2200, "Hambúrguer")]},
+                    {"code": "SELFTEST02", "seq": 13, "kind": "retirada", "name": "Bruno Lima", "phone": "94977776666",
+                     "address": "", "note": "", "payment": "Pix", "change_for_cents": None, "subtotal_cents": 600,
+                     "delivery_fee_cents": 0, "total_cents": 600, "created_at": "2026-01-01T19:41:00-03:00",
+                     "items": [item(prods[1], 1, 600, "Item")]}]}
+            return {"ok": True}
+
+        ctrl.cloud_transport = fake_cloud
+        ctrl.online_activate(online.make_activation_code("https://exemplo.supabase.co", "chave", "loja-teste", "tok"))
+        ctrl.online_save_settings(True, True, 500, 0, "18h às 23h", "", "https://exemplo.vercel.app")
+        online.sync(ctrl.conn, online.CloudClient.from_conn(ctrl.conn, transport=fake_cloud))
+
         app = QApplication.instance() or QApplication([])
         app.setStyleSheet(stylesheet(True))
         win = MainWindow(ctrl, "http://192.168.0.10:5000")
@@ -49,6 +72,14 @@ def run_selftest(outdir) -> int:
             win.go(i)
             app.processEvents()
             win.grab().save(str(out / f"{i + 1}-{name}.png"))
+        win.online.table.selectRow(0)
+        win.online.show_detail()
+        win.go(1)
+        app.processEvents()
+        win.grab().save(str(out / "pedidos-online-detalhe.png"))
+        assert ctrl.online_new_count() == 2
+        ticket = ctrl.online_ticket("SELFTEST01")
+        assert "PEDIDO ONLINE #12" in ticket
         win.go(0)
         win.dark = False
         win.apply_theme()

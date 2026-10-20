@@ -31,18 +31,18 @@ class Base(unittest.TestCase):
 
 
 class CashTests(Base):
-    def test_schema_is_v3_and_old_v2_db_migrates(self):
-        self.assertEqual(self.conn.execute("PRAGMA user_version").fetchone()[0], 3)
+    def test_schema_is_current_and_old_v2_db_migrates(self):
+        self.assertEqual(self.conn.execute("PRAGMA user_version").fetchone()[0], dbm.SCHEMA_VERSION)
         # simula banco v2 (sem tabelas de caixa) e confere a migração automática
         d = tempfile.mkdtemp()
         dbm.configure(d)
         dbm.init_db()
         c = dbm.connect()
-        c.executescript("DROP TABLE cash_movements; DROP TABLE cash_sessions; PRAGMA user_version=2;")
+        c.executescript("DROP TABLE online_orders; DROP TABLE cash_movements; DROP TABLE cash_sessions; PRAGMA user_version=2;")
         c.close()
         dbm.init_db()
         c = dbm.connect()
-        self.assertEqual(c.execute("PRAGMA user_version").fetchone()[0], 3)
+        self.assertEqual(c.execute("PRAGMA user_version").fetchone()[0], dbm.SCHEMA_VERSION)
         self.assertIsNone(cash.current_session(c))
         self.assertTrue(list(Path(d, "backups").glob("*pre_migracao.db")))
         c.close()
