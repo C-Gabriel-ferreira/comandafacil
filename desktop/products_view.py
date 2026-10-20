@@ -23,6 +23,12 @@ class ProductDialog(QDialog):
         self.cat.setCurrentText(product["category"] if product else (categories[0] if categories else "Outros"))
         self.price = QLineEdit(cents_to_input(product["price_cents"]) if product else "")
         self.price.setPlaceholderText("0,00")
+        self.cost = QLineEdit(cents_to_input(product["cost_cents"]) if product and product["cost_cents"] else "")
+        self.cost.setPlaceholderText("0,00 (opcional)")
+        self.margin = QLabel("")
+        self.margin.setObjectName("muted")
+        self.price.textChanged.connect(self._margin)
+        self.cost.textChanged.connect(self._margin)
         self.avail = QCheckBox("Disponível para venda")
         self.avail.setChecked(bool(product["available"]) if product else True)
         self.track = QCheckBox("Controlar estoque")
@@ -36,6 +42,8 @@ class ProductDialog(QDialog):
         form.addRow("Nome", self.name)
         form.addRow("Categoria", self.cat)
         form.addRow("Preço (R$)", self.price)
+        form.addRow("Custo (R$)", self.cost)
+        form.addRow("", self.margin)
         form.addRow("", self.avail)
         form.addRow("", self.track)
         form.addRow("Estoque atual", self.stock)
@@ -43,6 +51,7 @@ class ProductDialog(QDialog):
         lay.addLayout(form)
         self.track.toggled.connect(self._sync)
         self._sync()
+        self._margin()
         row = QHBoxLayout()
         row.addStretch(1)
         cancel, ok = QPushButton("Cancelar"), QPushButton("Salvar")
@@ -52,6 +61,13 @@ class ProductDialog(QDialog):
         row.addWidget(cancel)
         row.addWidget(ok)
         lay.addLayout(row)
+
+    def _margin(self, *_):
+        price, cost = dlg.money_or_none(self.price.text() or "0"), dlg.money_or_none(self.cost.text() or "0")
+        if price and cost and price > 0:
+            self.margin.setText(f"Lucro {format_brl(price - cost)} por unidade · margem {(price - cost) * 100 / price:.0f}%")
+        else:
+            self.margin.setText("Informe o custo para ver a margem de lucro.")
 
     def _sync(self, *_):
         self.stock.setEnabled(self.track.isChecked())
@@ -63,12 +79,15 @@ class ProductDialog(QDialog):
             return dlg.warn(self, "Preço inválido. Exemplo: 12,50")
         if not self.name.text().strip():
             return dlg.warn(self, "Informe o nome do produto.")
-        self.price_cents = price
+        cost = dlg.money_or_none(self.cost.text() or "0")
+        if cost is None:
+            return dlg.warn(self, "Custo inválido. Exemplo: 6,40")
+        self.price_cents, self.cost_cents = price, cost
         self.accept()
 
     def values(self):
         return (self.name.text(), self.cat.currentText(), self.price_cents, self.avail.isChecked(),
-                self.track.isChecked(), self.stock.value(), self.stock_min.value())
+                self.track.isChecked(), self.stock.value(), self.stock_min.value(), self.cost_cents)
 
 
 class ProductsView(QWidget):
@@ -97,8 +116,8 @@ class ProductsView(QWidget):
         for b in (new, edit, delete):
             head.addWidget(b)
         lay.addLayout(head)
-        self.table = QTableWidget(0, 6)
-        self.table.setHorizontalHeaderLabels(["Produto", "Categoria", "Preço", "Estoque", "Mínimo", "Situação"])
+        self.table = QTableWidget(0, 7)
+        self.table.setHorizontalHeaderLabels(["Produto", "Categoria", "Preço", "Margem", "Estoque", "Mínimo", "Situação"])
         self.table.verticalHeader().setVisible(False)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
@@ -118,12 +137,14 @@ class ProductsView(QWidget):
             self.table.insertRow(r)
             low = p["track_stock"] and p["stock"] <= p["stock_min"]
             status = ("Indisponível" if not p["available"] else ("Estoque baixo" if low else "Ativo"))
-            vals = [p["name"], p["category"], format_brl(p["price_cents"]),
+            margin = (f"{(p['price_cents'] - p['cost_cents']) * 100 // p['price_cents']}%"
+                      if p["cost_cents"] and p["price_cents"] else "—")
+            vals = [p["name"], p["category"], format_brl(p["price_cents"]), margin,
                     str(p["stock"]) if p["track_stock"] else "—",
                     str(p["stock_min"]) if p["track_stock"] else "—", status]
             for c, v in enumerate(vals):
                 it = QTableWidgetItem(v)
-                if c == 2:
+                if c in (2, 3):
                     it.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
                 self.table.setItem(r, c, it)
 
