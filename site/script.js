@@ -86,6 +86,40 @@
       })
       .catch(function () {});
   }
+  // ---- novidades: uma entrada por versão publicada (lidas das Releases, sem republicar o site)
+  function addRich(el, text) {
+    text.split(/(\*\*[^*]+\*\*)/).forEach(function (part) {
+      if (!part) return;
+      if (/^\*\*[^*]+\*\*$/.test(part)) { var b = document.createElement("b"); b.textContent = part.slice(2, -2); el.appendChild(b); }
+      else el.appendChild(document.createTextNode(part));
+    });
+  }
+  function renderNews(rels) {
+    var box = $("news-list"); if (!box) return;
+    box.textContent = "";
+    var shown = 0;
+    rels.forEach(function (rel) {
+      if (rel.draft || rel.prerelease || shown >= 8) return;
+      var items = (rel.body || "").split("\n---")[0].split("\n").filter(function (l) { return /^\s*[-*] /.test(l); });
+      if (!items.length) return;
+      shown++;
+      var art = document.createElement("article"); art.className = "news-item";
+      var h = document.createElement("h3");
+      var date = rel.published_at ? new Date(rel.published_at).toLocaleDateString("pt-BR") : "";
+      h.textContent = "Versão " + (rel.tag_name || "").replace(/^v/, "") + (date ? " · " + date : "");
+      art.appendChild(h);
+      var ul = document.createElement("ul");
+      items.forEach(function (l) { var li = document.createElement("li"); addRich(li, l.replace(/^\s*[-*] /, "")); ul.appendChild(li); });
+      art.appendChild(ul); box.appendChild(art);
+    });
+    if (!shown) box.innerHTML = '<p class="muted">Em breve.</p>';
+  }
+  if (cfg.repo) {
+    fetch("https://api.github.com/repos/" + cfg.repo + "/releases?per_page=10")
+      .then(function (r) { return r.ok ? r.json() : []; })
+      .then(renderNews)
+      .catch(function () { var b = $("news-list"); if (b) b.innerHTML = '<p class="muted">Não foi possível carregar agora.</p>'; });
+  }
   if (cfg.whatsapp) {
     document.querySelectorAll(".plan-cta").forEach(function (a) {
       var msg = encodeURIComponent("Olá! Tenho interesse no plano " + a.dataset.plan + " do ComandaFácil.");
