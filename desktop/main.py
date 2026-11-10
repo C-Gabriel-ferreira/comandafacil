@@ -42,20 +42,46 @@ def port_in_use(port: int) -> bool:
         return s.connect_ex(("127.0.0.1", port)) == 0
 
 
+SERVER_PROBLEM = ""  # motivo de o acesso pelo navegador não ter iniciado (mostrado ao usuário)
+
+
+def _log_server_problem(text):
+    """Guarda o motivo em servidor.log (na pasta de dados), porque a janela do PDV não tem console."""
+    global SERVER_PROBLEM
+    SERVER_PROBLEM = text
+    try:
+        with open(dbm.DATA_DIR / "servidor.log", "a", encoding="utf-8") as f:
+            f.write(f"{dbm.now()}  {text}\n")
+    except OSError:
+        pass
+
+
 def start_phone_server():
-    """Servidor web para celulares/tablets. Devolve (servidor, url) ou (None, None) se indisponível."""
-    if port_in_use(PORT):
-        return None, None
+    """Servidor web (navegador e celulares). Devolve (servidor, url) ou (None, None) se indisponível.
+
+    Se a porta padrão estiver ocupada (ex.: outra cópia do programa aberta), usa a próxima livre."""
+    from comandafacil import create_app
+
     try:
         from waitress import create_server
 
-        from comandafacil import create_app
-        server = create_server(create_app(), host="0.0.0.0", port=PORT, threads=8)
+        app = create_app()
     except Exception as exc:  # o PDV continua funcionando sem o servidor
-        print("Servidor para celulares indisponível:", exc, file=sys.stderr)
+        _log_server_problem(f"Não foi possível preparar o servidor: {type(exc).__name__}: {exc}")
         return None, None
-    threading.Thread(target=server.run, daemon=True, name="web").start()
-    return server, f"http://{lan_ip()}:{PORT}"
+    for port in range(PORT, PORT + 10):
+        if port_in_use(port):
+            continue
+        try:
+            server = create_server(app, host="0.0.0.0", port=port, threads=8)
+        except Exception as exc:  # porta bloqueada pelo firewall/antivírus, por exemplo
+            _log_server_problem(f"Porta {port} indisponível: {type(exc).__name__}: {exc}")
+            continue
+        threading.Thread(target=server.run, daemon=True, name="web").start()
+        return server, f"http://{lan_ip()}:{port}"
+    if not SERVER_PROBLEM:
+        _log_server_problem(f"As portas {PORT} a {PORT + 9} já estão em uso (talvez o programa já esteja aberto).")
+    return None, None
 
 
 def _saved_dark() -> bool:
@@ -97,6 +123,9 @@ def run() -> int:
                 return 0
             win = MainWindow(ctrl, url)
             win.showMaximized()
+            if server is None and SERVER_PROBLEM:
+                dlg.warn(win, "O acesso pelo navegador e pelos celulares não iniciou, mas o PDV funciona normalmente.\n\n"
+                              f"Motivo: {SERVER_PROBLEM}\n\nDetalhes em: {dbm.DATA_DIR / 'servidor.log'}", "Servidor web")
             app.exec()
             if not win.logged_out:
                 return 0
