@@ -2,6 +2,10 @@
 
 Cada versão nova aparece dentro do programa (botão "Novidades") e pode ser instalada por cima, sem perder dados.
 
+## 2.9.1 — 10/11/2026
+- **Acesso pelo navegador mais confiável:** se a porta 5000 já estiver em uso (por exemplo, outra cópia do programa aberta), o ComandaFácil agora usa a próxima porta livre em vez de desligar o servidor em silêncio. A barra lateral mostra o endereço certo, tanto neste computador quanto para os celulares.
+- Se o servidor web não conseguir iniciar, o PDV avisa o motivo e grava os detalhes em `servidor.log`, na pasta de dados.
+
 ## 2.9.0 — 10/11/2026
 - **Login novo na janela do PDV:** entra com usuário **ou e-mail**, com opção de mostrar a senha e o botão "Esqueci minha senha".
 - **Redefinir senha com código do suporte:** funciona sem internet; o código vale uma vez só.

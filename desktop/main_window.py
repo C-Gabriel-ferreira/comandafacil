@@ -90,7 +90,8 @@ class MainWindow(QMainWindow):
             self.side.addWidget(b)
         self.side.addStretch(1)
         if self.server_url:
-            ph = QLabel(f"📱 Celulares dos garçons\n{self.server_url}")
+            local = "http://127.0.0.1:" + self.server_url.rsplit(":", 1)[-1]
+            ph = QLabel(f"💻 Neste computador\n{local}\n\n📱 Celulares dos garçons\n{self.server_url}")
             ph.setObjectName("muted")
             ph.setWordWrap(True)
             ph.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
