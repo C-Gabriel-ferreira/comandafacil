@@ -1,10 +1,37 @@
-{% extends "base.html" %}{% from "_macros.html" import fields, icon %}{% block auth %}
-<div class="auth-card">
-  <div class="brand"><span class="brand-mark">{{ icon('utensils') }}</span><span class="brand-name">{{ business_name }}<small class="muted">gestão de comandas</small></span></div>
-  <h1 style="font-size:1.4rem">Bem-vindo de volta</h1><p class="muted">Entre com seu usuário e senha para continuar.</p>
-  <form method="post" action="{{ url_for('auth.login', next=next) }}">{{ fields() }}
-    <div class="field"><label>Usuário</label><input name="username" autofocus autocomplete="username" required></div>
-    <div class="field"><label>Senha</label><input name="password" type="password" autocomplete="current-password" required></div>
-    <button class="btn pri" type="submit" style="width:100%">Entrar</button></form>
-  <p class="vendor muted">ComandaFácil · desenvolvido pela <b>{{ VENDOR.name }}</b><br>Suporte: {{ VENDOR.phone }} · {{ VENDOR.email }}</p>
+{% extends "base.html" %}{% from "_macros.html" import fields, icon, auth_msgs, password_field %}
+{% block title %}Entrar · {{ business_name }}{% endblock %}
+{% block auth_cls %} wide{% endblock %}
+{% block auth_flashes %}{% endblock %}
+{% block auth %}
+<div class="auth-split">
+  <aside class="auth-hero" aria-hidden="true">
+    <div class="brand"><span class="brand-mark">{{ icon('utensils') }}</span><span class="brand-name">{{ business_name }}<small>gestão de comandas</small></span></div>
+    <div>
+      <h2>Do pedido ao fechamento, sem papel.</h2>
+      <ul class="hero-list">
+        <li>{{ icon('grid') }}<span>Mesas, comandas e fechamento de conta num só lugar</span></li>
+        <li>{{ icon('chart') }}<span>Relatórios de vendas e controle de estoque</span></li>
+        <li>{{ icon('users') }}<span>Funciona no computador, tablet e celular</span></li>
+      </ul>
+    </div>
+  </aside>
+  <section class="auth-card">
+    <div class="brand only-mobile"><span class="brand-mark">{{ icon('utensils') }}</span><span class="brand-name">{{ business_name }}<small class="muted">gestão de comandas</small></span></div>
+    <h1>Bem-vindo de volta</h1>
+    <p class="muted">Entre para abrir mesas, lançar pedidos e fechar contas.</p>
+    {{ auth_msgs() }}
+    {% if google_enabled %}
+    <a class="btn google" href="{{ url_for('auth.google_start', next=next or None) }}">
+      <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+      Entrar com o Google</a>
+    <div class="divider"><span>ou use seu usuário e senha</span></div>
+    {% endif %}
+    <form method="post" action="{{ url_for('auth.login', next=next or None) }}">{{ fields() }}
+      <div class="field"><label for="f-username">Usuário ou e-mail</label>
+        <input id="f-username" name="username" value="{{ ident }}" {{ '' if ident else 'autofocus' }} autocomplete="username" autocapitalize="none" spellcheck="false" required></div>
+      {{ password_field('password', 'Senha', 'current-password', autofocus=(ident|length > 0), link=(url_for('auth.forgot'), 'Esqueci minha senha')) }}
+      <button class="btn pri lg" type="submit">Entrar</button>
+    </form>
+    <p class="vendor muted">ComandaFácil · desenvolvido pela <b>{{ VENDOR.name }}</b><br>Suporte: {{ VENDOR.phone }} · {{ VENDOR.email }}</p>
+  </section>
 </div>{% endblock %}

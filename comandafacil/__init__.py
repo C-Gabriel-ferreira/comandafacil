@@ -11,12 +11,34 @@ from .money import cents_to_input, format_brl
 from .security import csrf_token, init_security, is_manager, new_rid
 from .services import KINDS, PAYMENT_METHODS
 
+_ENV_FILE_KEYS = ("COMANDAFACIL_GOOGLE_", "COMANDAFACIL_SMTP_", "COMANDAFACIL_PUBLIC_URL")
+
+
+def load_env_file():
+    """Lê KEY=VALOR do arquivo .env na pasta de dados (login Google, e-mail, endereço público).
+    Não sobrescreve variáveis que já existam no ambiente."""
+    f = dbm.DATA_DIR / ".env"
+    try:
+        lines = f.read_text(encoding="utf-8-sig").splitlines()
+    except OSError:
+        return
+    for line in lines:
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, val = line.partition("=")
+        key, val = key.strip(), val.strip().strip("\"'")
+        if key.startswith(_ENV_FILE_KEYS) and val:
+            os.environ.setdefault(key, val)
+
+
 STATUS_LABELS = {"aberta": "Aberta", "fechada": "Fechada", "cancelada": "Cancelada", "juntada": "Juntada"}
 
 
 def create_app(data_dir=None):
     if data_dir:
         dbm.configure(data_dir)
+    load_env_file()
     dbm.init_db()
     app = Flask(__name__, template_folder=str(dbm.BASE_DIR / "templates"),
                 static_folder=str(dbm.BASE_DIR / "static"))

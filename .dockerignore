@@ -9,3 +9,5 @@ desktop
 comandafacil_desktop.py
 requirements-desktop.txt
 README_DESKTOP.md
+chave_privada_licenca.pem
+tools

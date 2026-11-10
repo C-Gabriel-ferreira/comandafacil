@@ -12,7 +12,8 @@ from flask import (abort, flash, g, has_request_context, redirect, request,
 
 from . import db as dbm
 
-PUBLIC_ENDPOINTS = {"auth.login", "auth.setup", "healthz"}
+PUBLIC_ENDPOINTS = {"auth.login", "auth.setup", "auth.forgot", "auth.reset",
+                    "auth.reset_code", "auth.google_start", "auth.google_callback", "healthz"}
 HTTPS = os.environ.get("COMANDAFACIL_HTTPS") == "1"
 
 

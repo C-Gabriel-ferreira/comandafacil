@@ -41,7 +41,7 @@ DATA_DIR = Path(os.environ.get("COMANDAFACIL_DATA_DIR") or _default_data)
 DB_PATH = DATA_DIR / "comandas.db"
 BACKUP_DIR = DATA_DIR / "backups"
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 # Controle de caixa (v3, só SQLite — usado pelo programa desktop): turnos e sangria/suprimento.
 CASH_SQL = """
@@ -96,6 +96,22 @@ MIGRATIONS: dict[int, str] = {
     5: """
     ALTER TABLE products ADD COLUMN cost_cents INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE order_items ADD COLUMN unit_cost_cents INTEGER NOT NULL DEFAULT 0;
+    """,
+    # v6: e-mail e vínculo com a conta Google nos usuários + links de recuperação de senha
+    6: """
+    ALTER TABLE users ADD COLUMN email TEXT;
+    ALTER TABLE users ADD COLUMN google_sub TEXT;
+    CREATE UNIQUE INDEX idx_users_email ON users(email COLLATE NOCASE) WHERE email IS NOT NULL;
+    CREATE UNIQUE INDEX idx_users_google ON users(google_sub) WHERE google_sub IS NOT NULL;
+    CREATE TABLE password_resets (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        token_hash TEXT NOT NULL UNIQUE,
+        created_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        used_at TEXT
+    );
+    CREATE INDEX idx_resets_user ON password_resets(user_id);
     """,
 }
 
@@ -273,8 +289,21 @@ CREATE TABLE users (
     password_hash TEXT NOT NULL,
     role TEXT NOT NULL CHECK(role IN ('gerente','garcom')),
     active INTEGER NOT NULL DEFAULT 1,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    email TEXT,
+    google_sub TEXT
 );
+CREATE UNIQUE INDEX idx_users_email ON users(email COLLATE NOCASE) WHERE email IS NOT NULL;
+CREATE UNIQUE INDEX idx_users_google ON users(google_sub) WHERE google_sub IS NOT NULL;
+CREATE TABLE password_resets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash TEXT NOT NULL UNIQUE,
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    used_at TEXT
+);
+CREATE INDEX idx_resets_user ON password_resets(user_id);
 CREATE TABLE products (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
@@ -346,6 +375,7 @@ CREATE TABLE audit_log (
 PG_SCHEMA = (SCHEMA
     .replace("INTEGER PRIMARY KEY AUTOINCREMENT", "SERIAL PRIMARY KEY")
     .replace("username TEXT NOT NULL UNIQUE COLLATE NOCASE,", "username TEXT NOT NULL,")
+    .replace("ON users(email COLLATE NOCASE)", "ON users(lower(email))")
     + """
 CREATE UNIQUE INDEX idx_users_username ON users(lower(username));
 CREATE INDEX idx_payments_order ON payments(order_id);
@@ -354,7 +384,7 @@ CREATE INDEX idx_orders_table ON orders(table_id);
 CREATE INDEX idx_orders_created_by ON orders(created_by);
 """ + "".join(f"ALTER TABLE {t} ENABLE ROW LEVEL SECURITY;\n" for t in (
     "settings", "users", "products", "tables", "orders", "order_items", "payments",
-    "stock_movements", "audit_log")))
+    "stock_movements", "audit_log", "password_resets")))
 
 SEED_PRODUCTS = [
     ("Água mineral", "Bebidas", 300), ("Refrigerante lata", "Bebidas", 600),

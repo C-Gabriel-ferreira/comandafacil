@@ -3,3 +3,4 @@ __pycache__/
 backups/
 secret.key
 .env
+chave_privada_licenca.pem

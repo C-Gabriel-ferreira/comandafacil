@@ -1,11 +1,15 @@
 """Rodar:  python -m unittest discover -s tests -v"""
+import base64
+import importlib.util
+import os
 import re
 import sqlite3
 import sys
 import tempfile
 import unittest
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -182,7 +186,7 @@ class V1UpgradeTests(unittest.TestCase):
         dbm.configure(d)
         dbm.init_db()
         c = dbm.connect()
-        c.executescript("""ALTER TABLE products DROP COLUMN cost_cents; ALTER TABLE order_items DROP COLUMN unit_cost_cents; ALTER TABLE order_items DROP COLUMN kitchen_status; ALTER TABLE order_items DROP COLUMN sent_at;
+        c.executescript("""DROP INDEX idx_users_email; DROP INDEX idx_users_google; DROP TABLE password_resets; ALTER TABLE users DROP COLUMN email; ALTER TABLE users DROP COLUMN google_sub; ALTER TABLE products DROP COLUMN cost_cents; ALTER TABLE order_items DROP COLUMN unit_cost_cents; ALTER TABLE order_items DROP COLUMN kitchen_status; ALTER TABLE order_items DROP COLUMN sent_at;
             ALTER TABLE order_items DROP COLUMN ready_at; ALTER TABLE orders DROP COLUMN bill_requested_at;
             PRAGMA user_version=1;""")
         c.close()
@@ -334,6 +338,499 @@ class HttpFlowTests(unittest.TestCase):
             self.c.post("/login", data=dict(_csrf=t, username="gerente", password="errada"))
         r = self.c.post("/login", data=dict(_csrf=t, username="gerente", password="segredo1"), follow_redirects=True)
         self.assertIn("Muitas tentativas", r.get_data(as_text=True))
+
+
+class SchemaV2Tests(unittest.TestCase):
+    def test_v5_database_gets_email_google_and_resets(self):
+        d = tempfile.mkdtemp()
+        dbm.configure(d)
+        dbm.init_db()
+        old = dbm.connect()
+        old.executescript("DROP INDEX idx_users_email; DROP INDEX idx_users_google; DROP TABLE password_resets;"
+                          "ALTER TABLE users DROP COLUMN email; ALTER TABLE users DROP COLUMN google_sub;"
+                          "INSERT INTO users(username,display_name,password_hash,role,created_at) "
+                          "VALUES ('ana','Ana','x','gerente','2026-01-01'); PRAGMA user_version = 5;")
+        old.close()
+        dbm.init_db()
+        c = dbm.connect()
+        cols = {r["name"] for r in c.execute("PRAGMA table_info(users)")}
+        self.assertTrue({"email", "google_sub"} <= cols)
+        self.assertEqual(tuple(c.execute("SELECT username, email FROM users WHERE username='ana'").fetchone()), ("ana", None))
+        self.assertEqual(c.execute("SELECT COUNT(*) FROM password_resets").fetchone()[0], 0)
+        self.assertEqual(c.execute("PRAGMA user_version").fetchone()[0], dbm.SCHEMA_VERSION)
+        self.assertTrue(list((Path(d) / "backups").glob("*pre_migracao.db")))  # backup antes de migrar
+        c.close()
+
+    def test_fresh_database_has_same_columns(self):
+        dbm.configure(tempfile.mkdtemp())
+        dbm.init_db()
+        c = dbm.connect()
+        cols = {r["name"] for r in c.execute("PRAGMA table_info(users)")}
+        self.assertTrue({"email", "google_sub"} <= cols)
+        c.close()
+
+
+def _load_license_tool():
+    spec = importlib.util.spec_from_file_location(
+        "gerar_licenca", Path(__file__).resolve().parent.parent / "tools" / "gerar_licenca.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+class LicenseTests(unittest.TestCase):
+    """Licença assinada: limite de usuários, validade, responsável e Google só para gerente."""
+
+    @classmethod
+    def setUpClass(cls):
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+        cls.tool = _load_license_tool()
+        cls.key = Ed25519PrivateKey.generate()
+        cls.other_key = Ed25519PrivateKey.generate()
+
+    def setUp(self):
+        from comandafacil.views import auth
+        auth._fails.clear()
+        p = mock.patch.dict(os.environ, {"COMANDAFACIL_LICENSE_PUBKEY": self.tool.public_b64(self.key)})
+        p.start()
+        self.addCleanup(p.stop)
+        self.app = create_app(tempfile.mkdtemp())
+        self.c = self.app.test_client()
+        t = self.token("/setup")
+        self.c.post("/setup", data=dict(_csrf=t, username="gerente", password="segredo1", password2="segredo1",
+                                        email="dono@exemplo.com"))
+
+    def token(self, path):
+        return re.search(r'name="_csrf" value="([^"]+)"', self.c.get(path).get_data(as_text=True)).group(1)
+
+    def post(self, path, page="/usuarios", **data):
+        data.setdefault("_csrf", self.token(page))
+        return self.c.post(path, data=data)
+
+    def lic(self, users=5, days=365, email="dono@exemplo.com", key=None):
+        return self.tool.sign_license(key or self.key, "Restaurante Teste", email, users,
+                                      clock.today() + timedelta(days=days))
+
+    def add_user(self, name):
+        return self.post("/usuarios/adicionar", username=name, password="senha123", role="garcom")
+
+    def active_count(self):
+        c = dbm.connect(); n = c.execute("SELECT COUNT(*) FROM users WHERE active=1").fetchone()[0]; c.close()
+        return n
+
+    def test_parse_accepts_valid_and_rejects_tampered_or_foreign(self):
+        from comandafacil import license as L
+        info = L.parse(self.lic(7))
+        self.assertEqual((info["max_users"], info["owner_email"], info["customer"]),
+                         (7, "dono@exemplo.com", "Restaurante Teste"))
+        good = self.lic(7)
+        head, payload, sig = good.split(".")
+        forged = base64.urlsafe_b64encode(base64.urlsafe_b64decode(payload + "==").replace(b'"usuarios":7', b'"usuarios":9')).rstrip(b"=").decode()
+        for bad in (f"{head}.{forged}.{sig}", self.lic(7, key=self.other_key), "lixo", "", "CF1.a.b"):
+            with self.assertRaises(L.LicenseError):
+                L.parse(bad)
+
+    def test_evaluation_limit_without_license(self):
+        self.post("/login", "/login", username="gerente", password="segredo1")
+        self.add_user("ana"); self.add_user("bia")
+        self.assertEqual(self.active_count(), 3)
+        self.add_user("caio")  # 4º: acima do limite de avaliação
+        self.assertEqual(self.active_count(), 3)
+        page = self.c.get("/usuarios").get_data(as_text=True)
+        self.assertIn("Avaliação", page)
+        self.assertIn("3 de 3", page)
+
+    def test_activating_license_raises_limit_and_requires_owner_email(self):
+        self.post("/login", "/login", username="gerente", password="segredo1")
+        self.add_user("ana"); self.add_user("bia")
+        wrong = self.lic(5, email="outro@exemplo.com")
+        self.post("/usuarios/licenca", license=wrong)  # e-mail do gerente não é o do responsável
+        self.assertIn("Avaliação", self.c.get("/usuarios").get_data(as_text=True))
+        self.post("/usuarios/licenca", license=self.lic(5, key=self.other_key))  # assinatura de outro vendedor
+        self.assertIn("Avaliação", self.c.get("/usuarios").get_data(as_text=True))
+        self.post("/usuarios/licenca", license=self.lic(5))
+        page = self.c.get("/usuarios").get_data(as_text=True)
+        self.assertIn("Ativa", page)
+        self.assertIn("3 de 5", page)
+        self.add_user("caio"); self.add_user("dani")
+        self.assertEqual(self.active_count(), 5)
+        self.add_user("edu")  # 6º
+        self.assertEqual(self.active_count(), 5)
+
+    def test_reactivating_user_uses_a_seat(self):
+        self.post("/login", "/login", username="gerente", password="segredo1")
+        self.post("/usuarios/licenca", license=self.lic(2))
+        self.add_user("ana")
+        c = dbm.connect(); uid = c.execute("SELECT id FROM users WHERE username='ana'").fetchone()[0]; c.close()
+        self.post(f"/usuarios/{uid}/atualizar", role="garcom", active="0", email="")
+        self.add_user("bia")
+        self.assertEqual(self.active_count(), 2)
+        self.post(f"/usuarios/{uid}/atualizar", role="garcom", active="1", email="")  # sem vaga
+        c = dbm.connect(); n = c.execute("SELECT active FROM users WHERE id=?", (uid,)).fetchone()[0]; c.close()
+        self.assertEqual(n, 0)
+
+    def test_expired_license_keeps_users_working_but_blocks_new_ones(self):
+        self.post("/login", "/login", username="gerente", password="segredo1")
+        self.post("/usuarios/licenca", license=self.lic(10))
+        expired = self.lic(10, days=-1)
+        c = dbm.connect()
+        c.execute("UPDATE settings SET value=? WHERE key='license_key'", (expired,))
+        c.close()
+        page = self.c.get("/usuarios").get_data(as_text=True)
+        self.assertIn("Vencida", page)
+        self.add_user("ana")
+        self.assertEqual(self.active_count(), 1)
+        self.assertEqual(self.c.get("/").status_code, 200)  # o expediente não para
+        r = self.post("/usuarios/licenca", license=expired)  # não ativa licença já vencida
+        self.assertIn("Vencida", self.c.get("/usuarios").get_data(as_text=True))
+
+    def test_license_page_is_manager_only(self):
+        self.post("/login", "/login", username="gerente", password="segredo1")
+        self.add_user("ana")
+        self.post("/logout", "/")
+        self.post("/login", "/login", username="ana", password="senha123")
+        self.assertEqual(self.c.get("/usuarios").status_code, 403)
+        self.assertEqual(self.post("/usuarios/licenca", "/", license=self.lic(5)).status_code, 403)
+
+    def test_google_login_is_manager_only(self):
+        self.post("/logout", "/")
+        c = dbm.connect()
+        c.execute("INSERT INTO users(username,display_name,password_hash,role,created_at,email) "
+                  "VALUES ('ana','Ana','x','garcom','2026-01-01','ana@exemplo.com')")
+        c.close()
+        env = {"COMANDAFACIL_GOOGLE_CLIENT_ID": "id", "COMANDAFACIL_GOOGLE_CLIENT_SECRET": "s"}
+        with mock.patch.dict(os.environ, env):
+            for email, sub in (("ana@exemplo.com", "1"), ("dono@exemplo.com", "2")):
+                self.c.get("/login/google")
+                with self.c.session_transaction() as sess:
+                    state = sess["g_state"]
+                with mock.patch("comandafacil.google_auth.fetch_profile",
+                                return_value={"sub": sub, "email": email, "email_verified": True}):
+                    self.c.get(f"/login/google/retorno?code=x&state={state}")
+                if email.startswith("ana"):
+                    self.assertEqual(self.c.get("/").status_code, 302)  # garçom não entra com Google
+                else:
+                    self.assertEqual(self.c.get("/").status_code, 200)  # gerente entra
+
+    def test_tool_signs_verifiable_license(self):
+        from comandafacil import license as L
+        token = self.tool.sign_license(self.key, "Zé", "ze@exemplo.com", 3, clock.today() + timedelta(days=30))
+        self.assertEqual(L.parse(token)["max_users"], 3)
+
+
+class FirstAccessAndResetCodeTests(unittest.TestCase):
+    """Primeiro acesso com licença e códigos de redefinição emitidos pelo suporte."""
+
+    @classmethod
+    def setUpClass(cls):
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+        cls.tool = _load_license_tool()
+        cls.key = Ed25519PrivateKey.generate()
+        cls.other = Ed25519PrivateKey.generate()
+
+    def setUp(self):
+        from comandafacil.views import auth
+        auth._fails.clear()
+        p = mock.patch.dict(os.environ, {"COMANDAFACIL_LICENSE_PUBKEY": self.tool.public_b64(self.key)})
+        p.start()
+        self.addCleanup(p.stop)
+        self.app = create_app(tempfile.mkdtemp())
+        self.c = self.app.test_client()
+
+    def token(self, path):
+        return re.search(r'name="_csrf" value="([^"]+)"', self.c.get(path).get_data(as_text=True)).group(1)
+
+    def post(self, path, page, **data):
+        data.setdefault("_csrf", self.token(page))
+        return self.c.post(path, data=data)
+
+    def lic(self, email="dono@exemplo.com", days=365, key=None, users=5):
+        return self.tool.sign_license(key or self.key, "Restaurante Teste", email, users,
+                                      clock.today() + timedelta(days=days))
+
+    def setup_manager(self, **extra):
+        data = dict(username="gerente", password="segredo1", password2="segredo1")
+        data.update(extra)
+        return self.post("/setup", "/setup", **data)
+
+    def users(self):
+        c = dbm.connect(); rows = c.execute("SELECT username,email FROM users").fetchall(); c.close()
+        return [tuple(r) for r in rows]
+
+    def login(self, user, pw):
+        return self.post("/login", "/login", username=user, password=pw)
+
+    # ---- primeiro acesso
+    def test_setup_with_license_uses_owner_email_and_activates_it(self):
+        r = self.setup_manager(license=self.lic(), email="digitado@errado.com")
+        self.assertEqual((r.status_code, r.headers["Location"]), (302, "/"))
+        self.assertEqual(self.users(), [("gerente", "dono@exemplo.com")])
+        page = self.c.get("/usuarios").get_data(as_text=True)
+        self.assertIn("Ativa", page)
+        self.assertIn("1 de 5", page)
+
+    def test_setup_rejects_bad_licenses_without_creating_user(self):
+        for bad in (self.lic(key=self.other), self.lic(days=-1), "CF1.lixo.lixo"):
+            r = self.setup_manager(license=bad)
+            self.assertEqual(r.status_code, 200)  # volta ao formulário
+            self.assertEqual(self.users(), [])
+
+    def test_setup_without_license_still_works_in_evaluation_mode(self):
+        self.setup_manager(email="Gerente@Exemplo.com")
+        self.assertEqual(self.users(), [("gerente", "gerente@exemplo.com")])
+        self.assertIn("Avaliação", self.c.get("/usuarios").get_data(as_text=True))
+
+    # ---- códigos de redefinição
+    def code(self, email="dono@exemplo.com", hours=24, key=None):
+        return self.tool.sign_reset(key or self.key, email, hours)
+
+    def prepare(self):
+        self.setup_manager(license=self.lic())
+        self.post("/logout", "/")
+
+    def test_reset_code_flow_and_single_use(self):
+        self.prepare()
+        self.assertEqual(self.c.get("/login/codigo").status_code, 200)
+        code = self.code()
+        r = self.post("/login/codigo", "/login/codigo", code=code, password="novasenha1", password2="novasenha1")
+        self.assertEqual((r.status_code, r.headers["Location"]), (302, "/login"))
+        self.assertEqual(self.login("gerente", "novasenha1").status_code, 302)
+        self.post("/logout", "/")
+        self.assertEqual(self.login("gerente", "segredo1").status_code, 200)  # a antiga não vale mais
+        r = self.post("/login/codigo", "/login/codigo", code=code, password="outrasenha1", password2="outrasenha1")
+        self.assertIn("já foi usado", r.get_data(as_text=True))
+        self.assertEqual(self.login("gerente", "outrasenha1").status_code, 200)
+
+    def test_reset_code_is_not_burned_by_a_typo(self):
+        self.prepare()
+        code = self.code()
+        self.post("/login/codigo", "/login/codigo", code=code, password="novasenha1", password2="diferente1")
+        self.post("/login/codigo", "/login/codigo", code=code, password="curta", password2="curta")
+        r = self.post("/login/codigo", "/login/codigo", code=code, password="novasenha1", password2="novasenha1")
+        self.assertEqual(r.headers["Location"], "/login")
+
+    def test_reset_code_rejects_expired_forged_tampered_and_unknown_email(self):
+        self.prepare()
+        good = self.code()
+        head, payload, sig = good.split(".")
+        forged = base64.urlsafe_b64encode(base64.urlsafe_b64decode(payload + "==").replace(
+            b"dono@exemplo.com", b"dono@exemplo.com ")).rstrip(b"=").decode()
+        for bad in (self.code(hours=-1), self.code(key=self.other), f"{head}.{forged}.{sig}", "CR1.a.b", "",
+                    self.lic()):  # licença não vale como código
+            r = self.post("/login/codigo", "/login/codigo", code=bad, password="novasenha1", password2="novasenha1")
+            self.assertEqual(r.status_code, 200, bad[:12])
+        from comandafacil.views import auth
+        auth._fails.clear()  # as tentativas inválidas acima já acionaram o limite
+        r = self.post("/login/codigo", "/login/codigo", code=self.code(email="outro@exemplo.com"),
+                      password="novasenha1", password2="novasenha1")
+        self.assertIn("Não há usuário ativo", r.get_data(as_text=True))
+        self.assertEqual(self.login("gerente", "novasenha1").status_code, 200)  # nada mudou
+        self.assertEqual(self.login("gerente", "segredo1").status_code, 302)
+
+    def test_forgot_page_links_to_code_page(self):
+        self.prepare()
+        with mock.patch("comandafacil.mailer.is_configured", return_value=False):
+            self.assertIn("/login/codigo", self.c.get("/login/esqueci").get_data(as_text=True))
+        with mock.patch("comandafacil.mailer.is_configured", return_value=True):
+            self.assertIn("/login/codigo", self.c.get("/login/esqueci").get_data(as_text=True))
+
+
+class AccountAccessTests(unittest.TestCase):
+    """Login por e-mail, recuperação de senha e login com Google."""
+
+    def setUp(self):
+        from comandafacil.views import auth
+        auth._fails.clear()
+        self.app = create_app(tempfile.mkdtemp())
+        self.c = self.app.test_client()
+        self.mails = []
+        self.patches = [
+            mock.patch("comandafacil.mailer.is_configured", return_value=True),
+            mock.patch("comandafacil.mailer.send_async", side_effect=lambda *a, **k: self.mails.append(a)),
+        ]
+        for p in self.patches:
+            p.start()
+        self.addCleanup(lambda: [p.stop() for p in self.patches])
+        self.token_ = self.token("/setup")
+        self.c.post("/setup", data=dict(_csrf=self.token_, username="gerente", password="segredo1",
+                                        password2="segredo1", email="Gerente@Exemplo.com"))
+        self.post("/logout", "/")
+
+    def token(self, path):
+        return re.search(r'name="_csrf" value="([^"]+)"', self.c.get(path).get_data(as_text=True)).group(1)
+
+    def post(self, path, page="/", **data):
+        data.setdefault("_csrf", self.token(page))
+        return self.c.post(path, data=data)
+
+    def login(self, user, pw):
+        return self.post("/login", "/login", username=user, password=pw)
+
+    def row(self, user="gerente"):
+        c = dbm.connect()
+        try:
+            return c.execute("SELECT * FROM users WHERE username=?", (user,)).fetchone()
+        finally:
+            c.close()
+
+    def link_from_mail(self):
+        body = self.mails[-1][2]
+        return re.search(r"http://localhost(/login/redefinir/[\w-]+)", body).group(1)
+
+    # ---- login e telas
+    def test_login_by_email_is_case_insensitive_and_new_pages_render(self):
+        self.assertEqual(self.login("GERENTE@exemplo.com", "segredo1").status_code, 302)
+        self.post("/logout", "/")
+        page = self.c.get("/login").get_data(as_text=True)
+        self.assertIn("Esqueci minha senha", page)
+        self.assertNotIn("Entrar com o Google", page)  # sem credenciais, sem botão
+        self.assertEqual(self.c.get("/login/esqueci").status_code, 200)
+
+    def test_next_rejects_backslash_redirects(self):
+        r = self.post("/login?next=/%5Cevil.com", "/login", username="gerente", password="segredo1")
+        self.assertEqual(r.headers["Location"], "/")
+
+    # ---- recuperação de senha
+    def test_reset_flow_end_to_end(self):
+        r = self.post("/login/esqueci", "/login/esqueci", ident="gerente@exemplo.com")
+        self.assertIn("Verifique seu e-mail", r.get_data(as_text=True))
+        self.assertEqual(len(self.mails), 1)
+        self.assertEqual(self.mails[0][0], "gerente@exemplo.com")
+        link = self.link_from_mail()
+        self.assertEqual(self.c.get(link).status_code, 200)
+        # senha curta ou diferente não passa
+        self.post(link, link, password="curta", password2="curta")
+        self.post(link, link, password="novasenha1", password2="outra-coisa")
+        self.assertEqual(self.login("gerente", "segredo1").status_code, 302)  # antiga ainda vale
+        self.post("/logout", "/")
+        r = self.post(link, link, password="novasenha1", password2="novasenha1")
+        self.assertEqual((r.status_code, r.headers["Location"]), (302, "/login"))
+        self.assertEqual(self.c.get("/").status_code, 302)  # não entra sozinho
+        self.assertIn("/", self.login("gerente", "novasenha1").headers["Location"])
+        self.post("/logout", "/")
+        self.assertEqual(self.c.get(link).status_code, 400)  # link de uso único
+        self.assertEqual(self.login("gerente", "segredo1").status_code, 200)  # senha antiga não vale mais
+
+    def test_reset_does_not_reveal_unknown_accounts(self):
+        r = self.post("/login/esqueci", "/login/esqueci", ident="ninguem@exemplo.com")
+        self.assertIn("Verifique seu e-mail", r.get_data(as_text=True))
+        self.assertEqual(self.mails, [])
+
+    def test_reset_by_username_and_token_stored_hashed(self):
+        self.post("/login/esqueci", "/login/esqueci", ident="gerente")
+        token = self.link_from_mail().rsplit("/", 1)[1]
+        c = dbm.connect()
+        stored = c.execute("SELECT token_hash FROM password_resets").fetchone()[0]
+        c.close()
+        self.assertNotEqual(stored, token)
+        self.assertEqual(len(stored), 64)
+
+    def test_expired_link_and_per_account_limit(self):
+        self.post("/login/esqueci", "/login/esqueci", ident="gerente")
+        link = self.link_from_mail()
+        c = dbm.connect()
+        c.execute("UPDATE password_resets SET expires_at=?",
+                  ((clock.now_dt() - timedelta(minutes=1)).isoformat(timespec="seconds"),))
+        c.close()
+        self.assertEqual(self.c.get(link).status_code, 400)
+        for _ in range(4):
+            self.post("/login/esqueci", "/login/esqueci", ident="gerente")
+        self.assertEqual(len(self.mails), 3)  # no máximo 3 pedidos por hora por conta
+
+    def test_forgot_without_smtp_explains_and_sends_nothing(self):
+        with mock.patch("comandafacil.mailer.is_configured", return_value=False):
+            page = self.c.get("/login/esqueci").get_data(as_text=True)
+            self.assertIn("ainda não está ativada", page)
+            self.post("/login/esqueci", "/login", ident="gerente")
+        self.assertEqual(self.mails, [])
+
+    def test_inactive_user_cannot_reset(self):
+        c = dbm.connect()
+        c.execute("UPDATE users SET active=0")
+        c.close()
+        self.post("/login/esqueci", "/login/esqueci", ident="gerente")
+        self.assertEqual(self.mails, [])
+
+    # ---- Google
+    GOOGLE_ENV = {"COMANDAFACIL_GOOGLE_CLIENT_ID": "id.apps.googleusercontent.com",
+                  "COMANDAFACIL_GOOGLE_CLIENT_SECRET": "segredo"}
+
+    def google_login(self, profile, state=None):
+        """Percorre /login/google -> retorno, com o Google simulado."""
+        r = self.c.get("/login/google")
+        self.assertEqual(r.status_code, 302)
+        self.assertTrue(r.headers["Location"].startswith("https://accounts.google.com/"))
+        q = dict(p.split("=", 1) for p in r.headers["Location"].split("?", 1)[1].split("&"))
+        self.assertEqual(q["code_challenge_method"], "S256")
+        self.assertIn("redirect_uri", q)
+        with mock.patch("comandafacil.google_auth.fetch_profile", return_value=profile):
+            return self.c.get(f"/login/google/retorno?code=abc&state={state or q['state']}", follow_redirects=False)
+
+    def test_google_button_only_when_configured(self):
+        with mock.patch.dict(os.environ, self.GOOGLE_ENV):
+            self.assertIn("Entrar com o Google", self.c.get("/login").get_data(as_text=True))
+        self.assertEqual(self.c.get("/login/google").headers["Location"], "/login")
+
+    def test_google_links_by_verified_email_then_matches_by_sub(self):
+        with mock.patch.dict(os.environ, self.GOOGLE_ENV):
+            r = self.google_login({"sub": "111", "email": "gerente@exemplo.com", "email_verified": True})
+            self.assertEqual(r.headers["Location"], "/")
+            self.assertEqual(self.c.get("/").status_code, 200)
+            self.assertEqual(self.row()["google_sub"], "111")
+            self.post("/logout", "/")
+            # mesmo sub entra mesmo que o e-mail da conta Google tenha mudado
+            r = self.google_login({"sub": "111", "email": "novo@gmail.com", "email_verified": True})
+            self.assertEqual(r.headers["Location"], "/")
+            self.post("/logout", "/")
+            # outra conta Google com o mesmo e-mail cadastrado não toma o lugar
+            r = self.google_login({"sub": "222", "email": "gerente@exemplo.com", "email_verified": True})
+            self.assertEqual(r.headers["Location"], "/login")
+            self.assertEqual(self.c.get("/").status_code, 302)
+
+    def test_google_rejects_unknown_unverified_inactive_and_bad_state(self):
+        with mock.patch.dict(os.environ, self.GOOGLE_ENV):
+            for profile in ({"sub": "9", "email": "estranho@gmail.com", "email_verified": True},
+                            {"sub": "9", "email": "gerente@exemplo.com", "email_verified": False}):
+                r = self.google_login(profile)
+                self.assertEqual(r.headers["Location"], "/login")
+                self.assertEqual(self.c.get("/").status_code, 302)
+            self.assertIn("não está liberada", self.c.get("/login").get_data(as_text=True))
+            self.assertIsNone(self.row()["google_sub"])  # nada é criado nem vinculado
+            c = dbm.connect(); n = c.execute("SELECT COUNT(*) FROM users").fetchone()[0]; c.close()
+            self.assertEqual(n, 1)
+            r = self.google_login({"sub": "1", "email": "gerente@exemplo.com", "email_verified": True}, state="forjado")
+            self.assertEqual(self.c.get("/").status_code, 302)
+            c = dbm.connect(); c.execute("UPDATE users SET active=0"); c.close()
+            r = self.google_login({"sub": "1", "email": "gerente@exemplo.com", "email_verified": True})
+            self.assertEqual(self.c.get("/").status_code, 302)
+
+    def test_google_cancel_and_state_is_single_use(self):
+        with mock.patch.dict(os.environ, self.GOOGLE_ENV):
+            self.c.get("/login/google")
+            r = self.c.get("/login/google/retorno?error=access_denied")
+            self.assertEqual(r.headers["Location"], "/login")
+            r = self.c.get("/login/google/retorno?code=abc&state=qualquer")  # sem fluxo em andamento
+            self.assertEqual(self.c.get("/").status_code, 302)
+
+    # ---- gerente cadastra e-mails
+    def test_manager_sets_email_and_change_unlinks_google(self):
+        self.login("gerente", "segredo1")
+        self.post("/usuarios/adicionar", "/usuarios", username="joao", password="senha123", role="garcom",
+                  email="Joao@Exemplo.com")
+        self.assertEqual(self.row("joao")["email"], "joao@exemplo.com")
+        self.post("/usuarios/adicionar", "/usuarios", username="maria", password="senha123", role="garcom",
+                  email="joao@exemplo.com")  # duplicado
+        self.assertIsNone(self.row("maria"))
+        self.post("/usuarios/adicionar", "/usuarios", username="pedro", password="senha123", role="garcom",
+                  email="isto-nao-e-email")
+        self.assertIsNone(self.row("pedro"))
+        c = dbm.connect(); c.execute("UPDATE users SET google_sub='abc' WHERE username='joao'"); c.close()
+        uid = self.row("joao")["id"]
+        self.post(f"/usuarios/{uid}/atualizar", "/usuarios", role="garcom", active="1", email="joao@exemplo.com")
+        self.assertEqual(self.row("joao")["google_sub"], "abc")  # e-mail igual: vínculo mantido
+        self.post(f"/usuarios/{uid}/atualizar", "/usuarios", role="garcom", active="1", email="joao2@exemplo.com")
+        self.assertEqual((self.row("joao")["email"], self.row("joao")["google_sub"]), ("joao2@exemplo.com", None))
+        self.assertIn("Google vinculado" if False else "joao2@exemplo.com", self.c.get("/usuarios").get_data(as_text=True))
 
 
 if __name__ == "__main__":

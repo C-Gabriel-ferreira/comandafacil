@@ -2,6 +2,13 @@
 
 Cada versão nova aparece dentro do programa (botão "Novidades") e pode ser instalada por cima, sem perder dados.
 
+## 2.8.0 — 10/11/2026
+- **Nova tela de login:** visual renovado, mostrar/ocultar senha, aviso de Caps Lock e entrada por usuário **ou e-mail**.
+- **Entrar com o Google (só o gerente):** opcional, ativado quando o Google está configurado no servidor (`COMANDAFACIL_GOOGLE_*`). Garçons e demais usuários continuam com usuário e senha.
+- **Recuperação de senha:** link por e-mail (quando o e-mail do servidor está configurado) ou **código de uso único emitido pelo suporte**, que funciona sem internet em `/login/codigo`.
+- **Licença com limite de usuários:** cada cliente recebe uma licença com o número de usuários ativos e o e-mail do responsável. O primeiro acesso aceita a licença; sem ela o sistema funciona em modo de avaliação (3 usuários). Licença vencida não bloqueia quem já usa, só impede criar ou reativar usuários.
+- Cada usuário agora pode ter e-mail cadastrado (em *Usuários*).
+
 ## 2.7.0 — 20/10/2026
 - **Sugestão de venda adicional no PDV:** com a comanda aberta, aparecem até 3 botões "+ produto" com o que mais sai junto com os itens já pedidos (calculado pelas suas vendas). Um toque adiciona 1 unidade. Sem histórico, sugere os mais vendidos; itens indisponíveis ou sem estoque nunca são sugeridos.
 

@@ -38,7 +38,7 @@ class CashTests(Base):
         dbm.configure(d)
         dbm.init_db()
         c = dbm.connect()
-        c.executescript("ALTER TABLE products DROP COLUMN cost_cents; ALTER TABLE order_items DROP COLUMN unit_cost_cents; DROP TABLE online_orders; DROP TABLE cash_movements; DROP TABLE cash_sessions; PRAGMA user_version=2;")
+        c.executescript("DROP INDEX idx_users_email; DROP INDEX idx_users_google; DROP TABLE password_resets; ALTER TABLE users DROP COLUMN email; ALTER TABLE users DROP COLUMN google_sub; ALTER TABLE products DROP COLUMN cost_cents; ALTER TABLE order_items DROP COLUMN unit_cost_cents; DROP TABLE online_orders; DROP TABLE cash_movements; DROP TABLE cash_sessions; PRAGMA user_version=2;")
         c.close()
         dbm.init_db()
         c = dbm.connect()
