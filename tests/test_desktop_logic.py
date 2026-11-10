@@ -1,10 +1,16 @@
 """Testes do caixa, cupom e camada de aplicação do programa desktop (sem Qt).
 Rodar:  python -m unittest discover -s tests -v"""
+import base64
+import importlib.util
+import os
+import re
 import sqlite3
 import sys
 import tempfile
 import unittest
+from datetime import timedelta
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -214,3 +220,84 @@ class ReceiptTests(Base):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def _license_tool():
+    spec = importlib.util.spec_from_file_location(
+        "gerar_licenca", Path(__file__).resolve().parent.parent / "tools" / "gerar_licenca.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+class DesktopAccessTests(unittest.TestCase):
+    """Login por e-mail, primeiro acesso com licença e código de redefinição do suporte no PDV."""
+
+    @classmethod
+    def setUpClass(cls):
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+        cls.tool = _license_tool()
+        cls.key, cls.other = Ed25519PrivateKey.generate(), Ed25519PrivateKey.generate()
+
+    def setUp(self):
+        p = mock.patch.dict(os.environ, {"COMANDAFACIL_LICENSE_PUBKEY": self.tool.public_b64(self.key)})
+        p.start()
+        self.addCleanup(p.stop)
+        dbm.configure(tempfile.mkdtemp())
+        dbm.init_db()
+        self.conn = dbm.connect()
+        self.addCleanup(self.conn.close)
+        self.c = Controller(self.conn)
+
+    def lic(self, email="dono@exemplo.com", days=365, key=None):
+        from comandafacil import clock
+        return self.tool.sign_license(key or self.key, "Restaurante Teste", email, 5,
+                                      clock.today() + timedelta(days=days))
+
+    def test_setup_with_license_uses_owner_email_and_activates(self):
+        self.c.create_manager("gerente", "Ana", "senha-forte-1", email="outro@x.com", license_token=self.lic())
+        row = self.conn.execute("SELECT email FROM users").fetchone()
+        self.assertEqual(row["email"], "dono@exemplo.com")
+        st = self.c.license_status()
+        self.assertEqual((st["state"], st["max_users"], st["active"]), ("ok", 5, 1))
+
+    def test_setup_rejects_bad_license_and_creates_nobody(self):
+        for bad in (self.lic(key=self.other), self.lic(days=-1), "CF1.lixo.lixo"):
+            with self.assertRaises(BusinessError):
+                self.c.create_manager("gerente", "Ana", "senha-forte-1", license_token=bad)
+            self.assertFalse(self.c.has_users())
+
+    def test_setup_without_license_is_evaluation_and_login_by_email(self):
+        self.c.create_manager("gerente", "Ana", "senha-forte-1", email="Dono@Exemplo.com")
+        self.assertEqual(self.c.license_status()["state"], "none")
+        self.assertEqual(self.c.login("DONO@exemplo.com", "senha-forte-1")["username"], "gerente")
+        with self.assertRaises(BusinessError):
+            self.c.create_manager("outro", "X", "senha-forte-1")
+        with self.assertRaises(BusinessError):
+            self.c.login("dono@exemplo.com", "errada")
+
+    def test_reset_code_flow_single_use_and_not_burned_by_typo(self):
+        self.c.create_manager("gerente", "Ana", "senha-forte-1", license_token=self.lic())
+        code = self.tool.sign_reset(self.key, "dono@exemplo.com", 24)
+        with self.assertRaises(BusinessError):
+            self.c.reset_with_code(code, "novasenha1", "diferente1")
+        with self.assertRaises(BusinessError):
+            self.c.reset_with_code(code, "curta", "curta")
+        self.assertEqual(self.c.reset_with_code(" " + code + "\n", "novasenha1", "novasenha1"), "gerente")
+        self.c.login("gerente", "novasenha1")
+        with self.assertRaises(BusinessError):
+            self.c.login("gerente", "senha-forte-1")
+        with self.assertRaisesRegex(BusinessError, "já foi usado"):
+            self.c.reset_with_code(code, "outrasenha1", "outrasenha1")
+
+    def test_reset_code_rejects_expired_foreign_and_unknown_email(self):
+        self.c.create_manager("gerente", "Ana", "senha-forte-1", license_token=self.lic())
+        for bad in (self.tool.sign_reset(self.key, "dono@exemplo.com", -1),
+                    self.tool.sign_reset(self.other, "dono@exemplo.com", 24), "CR1.a.b", "", self.lic()):
+            with self.assertRaises(BusinessError):
+                self.c.reset_with_code(bad, "novasenha1", "novasenha1")
+        self.c._fails.clear()
+        with self.assertRaisesRegex(BusinessError, "Não há usuário ativo"):
+            self.c.reset_with_code(self.tool.sign_reset(self.key, "outro@exemplo.com", 24),
+                                   "novasenha1", "novasenha1")
+        self.c.login("gerente", "senha-forte-1")  # nada mudou

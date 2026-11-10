@@ -2,7 +2,7 @@
 from PySide6.QtCore import QSizeF, Qt
 from PySide6.QtGui import QFont, QPageSize, QTextDocument
 from PySide6.QtPrintSupport import QPrintDialog, QPrinter, QPrinterInfo
-from PySide6.QtWidgets import (QComboBox, QDialog, QDialogButtonBox, QFormLayout, QFrame, QHBoxLayout,
+from PySide6.QtWidgets import (QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFormLayout, QFrame, QHBoxLayout,
                                QInputDialog, QLabel, QLineEdit, QMessageBox, QPlainTextEdit, QPushButton,
                                QSpinBox, QVBoxLayout, QWidget)
 
@@ -61,34 +61,62 @@ def _buttons(dialog, ok_text="Confirmar", primary=True):
 
 
 # ------------------------------------------------------------ acesso ao sistema
+def _password_field(show_box=True):
+    """Campo de senha com a opção de mostrar o que foi digitado."""
+    field = QLineEdit()
+    field.setEchoMode(QLineEdit.EchoMode.Password)
+    box = None
+    if show_box:
+        box = QCheckBox("Mostrar senha")
+        box.toggled.connect(lambda on: field.setEchoMode(
+            QLineEdit.EchoMode.Normal if on else QLineEdit.EchoMode.Password))
+    return field, box
+
+
+def _header(lay, title, subtitle):
+    t = QLabel(title)
+    t.setObjectName("title")
+    s = QLabel(subtitle)
+    s.setObjectName("subtitle")
+    s.setWordWrap(True)
+    lay.addWidget(t)
+    lay.addWidget(s)
+
+
 class SetupDialog(QDialog):
-    """Primeiro acesso: cria o gerente."""
+    """Primeiro acesso: cria o gerente (com a licença do cliente, se ele já tiver)."""
 
     def __init__(self, ctrl, parent=None):
         super().__init__(parent)
         self.ctrl = ctrl
         self.setWindowTitle("Primeiro acesso — criar gerente")
-        self.setMinimumWidth(400)
+        self.setMinimumWidth(460)
         lay = QVBoxLayout(self)
-        t = QLabel("Bem-vindo ao ComandaFácil")
-        t.setObjectName("title")
-        s = QLabel("Crie a conta do gerente. Ela administra caixa, produtos e usuários.")
-        s.setObjectName("subtitle")
-        s.setWordWrap(True)
-        lay.addWidget(t)
-        lay.addWidget(s)
+        lay.setSpacing(10)
+        _header(lay, "Bem-vindo ao ComandaFácil",
+                "Crie a conta do gerente. Ela administra caixa, produtos e usuários.")
         form = QFormLayout()
         self.name = QLineEdit()
         self.user = QLineEdit()
-        self.pw = QLineEdit()
-        self.pw2 = QLineEdit()
-        for w in (self.pw, self.pw2):
-            w.setEchoMode(QLineEdit.EchoMode.Password)
+        self.email = QLineEdit()
+        self.email.setPlaceholderText("opcional — vem da licença, se houver")
+        self.pw, show = _password_field()
+        self.pw2, _ = _password_field(False)
+        self.license = QPlainTextEdit()
+        self.license.setPlaceholderText("Cole aqui a licença (CF1.…). Sem ela, o sistema funciona em avaliação.")
+        self.license.setFixedHeight(64)
         form.addRow("Seu nome", self.name)
         form.addRow("Usuário", self.user)
+        form.addRow("E-mail", self.email)
         form.addRow("Senha (mín. 8)", self.pw)
         form.addRow("Repita a senha", self.pw2)
+        form.addRow("", show)
+        form.addRow("Licença", self.license)
         lay.addLayout(form)
+        note = QLabel("Sem licença você pode usar até 3 usuários ativos para avaliar o sistema.")
+        note.setObjectName("subtitle")
+        note.setWordWrap(True)
+        lay.addWidget(note)
         row, ok = _buttons(self, "Criar conta")
         ok.clicked.connect(self._save)
         lay.addLayout(row)
@@ -96,9 +124,44 @@ class SetupDialog(QDialog):
     def _save(self):
         if self.pw.text() != self.pw2.text():
             return warn(self, "As senhas não conferem.")
-        done, _ = attempt(self, self.ctrl.create_manager, self.user.text(), self.name.text(), self.pw.text())
+        done, _ = attempt(self, self.ctrl.create_manager, self.user.text(), self.name.text(), self.pw.text(),
+                          self.email.text(), self.license.toPlainText())
         if done:
             self.ctrl.login(self.user.text(), self.pw.text())
+            self.accept()
+
+
+class ResetCodeDialog(QDialog):
+    """Nova senha com o código de uso único enviado pelo suporte (funciona sem internet)."""
+
+    def __init__(self, ctrl, parent=None):
+        super().__init__(parent)
+        self.ctrl = ctrl
+        self.setWindowTitle("Redefinir senha com código")
+        self.setMinimumWidth(460)
+        lay = QVBoxLayout(self)
+        lay.setSpacing(10)
+        _header(lay, "Redefinir senha",
+                "Peça ao suporte um código de redefinição (vale uma vez só), cole abaixo e escolha a nova senha.")
+        self.code = QPlainTextEdit()
+        self.code.setPlaceholderText("CR1.…")
+        self.code.setFixedHeight(70)
+        self.pw, show = _password_field()
+        self.pw2, _ = _password_field(False)
+        form = QFormLayout()
+        form.addRow("Código", self.code)
+        form.addRow("Nova senha", self.pw)
+        form.addRow("Repita a senha", self.pw2)
+        form.addRow("", show)
+        lay.addLayout(form)
+        row, ok = _buttons(self, "Redefinir senha")
+        ok.clicked.connect(self._save)
+        lay.addLayout(row)
+
+    def _save(self):
+        done, user = attempt(self, self.ctrl.reset_with_code, self.code.toPlainText(), self.pw.text(), self.pw2.text())
+        if done:
+            info(self, f"Senha do usuário “{user}” redefinida. Entre com a nova senha.")
             self.accept()
 
 
@@ -107,24 +170,34 @@ class LoginDialog(QDialog):
         super().__init__(parent)
         self.ctrl = ctrl
         self.setWindowTitle("Entrar")
-        self.setMinimumWidth(360)
+        self.setMinimumWidth(400)
         lay = QVBoxLayout(self)
-        t = QLabel(ctrl.setting("business_name", "ComandaFácil"))
-        t.setObjectName("title")
-        t.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        lay.addWidget(t)
+        lay.setSpacing(10)
+        _header(lay, ctrl.setting("business_name", "ComandaFácil"),
+                "Entre para abrir mesas, lançar pedidos e fechar contas.")
         form = QFormLayout()
         self.user = QLineEdit()
-        self.pw = QLineEdit()
-        self.pw.setEchoMode(QLineEdit.EchoMode.Password)
-        form.addRow("Usuário", self.user)
+        self.user.setPlaceholderText("usuário ou e-mail")
+        self.pw, show = _password_field()
+        form.addRow("Usuário ou e-mail", self.user)
         form.addRow("Senha", self.pw)
+        form.addRow("", show)
         lay.addLayout(form)
         row, ok = _buttons(self, "Entrar")
         ok.clicked.connect(self._enter)
         lay.addLayout(row)
+        forgot = QPushButton("Esqueci minha senha")
+        forgot.setFlat(True)
+        forgot.setCursor(Qt.CursorShape.PointingHandCursor)
+        forgot.clicked.connect(self._forgot)
+        lay.addWidget(forgot, alignment=Qt.AlignmentFlag.AlignCenter)
         self.pw.returnPressed.connect(self._enter)
         self.user.returnPressed.connect(self.pw.setFocus)
+
+    def _forgot(self):
+        ResetCodeDialog(self.ctrl, self).exec()
+        self.pw.clear()
+        self.pw.setFocus()
 
     def _enter(self):
         done, _ = attempt(self, self.ctrl.login, self.user.text(), self.pw.text())
