@@ -28,9 +28,11 @@
     {% endif %}
     <form method="post" action="{{ url_for('auth.login', next=next or None) }}">{{ fields() }}
       <div class="field"><label for="f-username">Usuário ou e-mail</label>
-        <input id="f-username" name="username" value="{{ ident }}" {{ '' if ident else 'autofocus' }} autocomplete="username" autocapitalize="none" spellcheck="false" required></div>
-      {{ password_field('password', 'Senha', 'current-password', autofocus=(ident|length > 0), link=(url_for('auth.forgot'), 'Esqueci minha senha')) }}
-      <button class="btn pri lg" type="submit">Entrar</button>
+        <input id="f-username" name="username" value="{{ ident }}" {{ '' if ident else 'autofocus' }} autocomplete="username" autocapitalize="none" spellcheck="false" enterkeyhint="next" required{{ ' aria-invalid=true' if error }}>
+        <small class="hint">Garçom? Use o usuário que o gerente criou para você.</small></div>
+      {{ password_field('password', 'Senha', 'current-password', autofocus=(ident|length > 0), link=(url_for('auth.forgot'), 'Esqueci minha senha'), invalid=error) }}
+      <label class="check"><input type="checkbox" name="remember" value="1"><span>Manter conectado neste aparelho <small>(14 dias)</small></span></label>
+      <button class="btn pri lg" type="submit" data-loading="Entrando…">Entrar</button>
     </form>
     <p class="vendor muted">ComandaFácil · desenvolvido pela <b>{{ VENDOR.name }}</b><br>Suporte: {{ VENDOR.phone }} · {{ VENDOR.email }}</p>
   </section>

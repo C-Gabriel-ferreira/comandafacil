@@ -2,6 +2,11 @@
 
 Cada versão nova aparece dentro do programa (botão "Novidades") e pode ser instalada por cima, sem perder dados.
 
+## 2.10.0 — 10/11/2026
+- **Login mais claro e rápido:** campo com erro destacado, aviso de quanto tempo esperar quando há muitas tentativas, botão "Entrando…", dica para garçom e a opção **Manter conectado neste aparelho (14 dias)**.
+- **Mais segurança:** corrigido redirecionamento para site de fora após o login; limite de tentativas também por IP e por conta; trocar ou redefinir a senha derruba as outras sessões; recusa de senhas óbvias; política de segurança do navegador (CSP), corpo de requisição limitado e exportação CSV protegida contra fórmulas de planilha.
+- **Menos poluição:** removido o botão "WhatsApp ao lado do sistema" (janela acoplada). O botão "Mensagem" da comanda continua. Removida a cópia antiga da pasta `ComandaFacil_web`.
+
 ## 2.9.1 — 10/11/2026
 - **Acesso pelo navegador mais confiável:** se a porta 5000 já estiver em uso (por exemplo, outra cópia do programa aberta), o ComandaFácil agora usa a próxima porta livre em vez de desligar o servidor em silêncio. A barra lateral mostra o endereço certo, tanto neste computador quanto para os celulares.
 - Se o servidor web não conseguir iniciar, o PDV avisa o motivo e grava os detalhes em `servidor.log`, na pasta de dados.

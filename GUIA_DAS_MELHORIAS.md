@@ -77,15 +77,10 @@ Cada linha do cardápio tem campo de observação (“sem cebola”, “bem pass
 ### Delivery e balcão 🖱 *+ Balcão / Delivery* na tela de mesas
 Comandas sem mesa, com nome, telefone, endereço e taxa de entrega (soma no total, sem serviço). Aparecem numa seção própria enquanto abertas e entram nos relatórios por tipo.
 
-### WhatsApp ao lado do sistema 🖱 botão verde “WhatsApp” (topo) e botão “Mensagem” na comanda
-**Limite técnico:** o WhatsApp Web envia cabeçalhos que proíbem ser exibido dentro de `<iframe>` de outro site. Isso vale para qualquer navegador e não tem contorno legítimo.
-**O que foi feito (modo acoplado):**
-- “WhatsApp” abre o WhatsApp Web numa janela posicionada no lado direito da tela (largura ajustável: o sistema ocupa de 40% a 75% da tela, salva no navegador).
-- “Abrir o sistema em janela própria” abre o sistema na metade esquerda. (Navegadores só deixam um site redimensionar janelas que ele mesmo abriu.)
-- Na comanda, “Mensagem” monta a confirmação do pedido (itens, observações, totais, endereço); você edita e clica em “Abrir conversa”: a conversa abre **na mesma janela do WhatsApp** já acoplada, com a mensagem preenchida. Telefone é normalizado (adiciona 55). Também há “Copiar mensagem”.
-- Sem pop-ups liberados, o sistema avisa em vez de falhar em silêncio.
-⚠ O sistema **não envia sozinho** nem lê conversas (envio automático arrisca bloqueio da conta). Se mudar a largura, feche a janela do WhatsApp e acople de novo.
-**Alternativas reais de integração total:** (a) API oficial do WhatsApp Business/Cloud API da Meta — caixa de conversas dentro do sistema; exige conta verificada, número dedicado, endereço público HTTPS e tem custo por conversa; (b) aplicativo de desktop (Electron) com WhatsApp em painel interno, que já fizemos antes.
+### Mensagem pelo WhatsApp 🖱 botão “Mensagem” na comanda
+Monta a confirmação do pedido (itens, observações, totais, endereço); você edita e clica em “Abrir conversa”: o WhatsApp Web abre em outra aba com a mensagem pronta.
+⚠ O sistema **não envia sozinho** nem lê conversas (envio automático arrisca bloqueio da conta). Sem pop-ups liberados, o sistema avisa em vez de falhar em silêncio.
+(O antigo botão “WhatsApp ao lado do sistema” foi removido na 2.10.0: o WhatsApp Web não pode ser embutido em outra página e a janela acoplada dava mais trabalho que ajuda.)
 
 ### Estoque 🖱 *Produtos → Controlar estoque*
 Opcional por produto: quantidade atual e **mínimo**. Ao lançar item o estoque baixa; remover/diminuir devolve; **vender além do estoque é bloqueado**. Alerta de estoque baixo na tela inicial. Cada movimentação (venda, devolução, entrada, baixa manual, cancelamento) fica registrada em `stock_movements`. 🖱 “Ajustar” aceita `+20` (entrada) ou `-2` (perda) com motivo.

@@ -40,6 +40,13 @@ def parse_period():
     return p, start, end
 
 
+def _cell(value):
+    """Planilhas executam texto que começa com = + - @ como fórmula (garçom poderia pôr isso no nome do
+    cliente). O apóstrofo faz o Excel/Sheets tratar como texto."""
+    s = "" if value is None else str(value)
+    return "'" + s if s[:1] in ("=", "+", "-", "@", "\t", "\r") else s
+
+
 @bp.route("/relatorios")
 @manager_required
 def relatorios():
@@ -61,8 +68,8 @@ def exportar_csv():
         pays = "; ".join(f"{p.rsplit(' ', 1)[0]} {fmt(int(p.rsplit(' ', 1)[1]))}"
                          for p in (o["pays"] or "").split("; ") if p)
         w.writerow([o["id"], o["closed_at"].replace("T", " "), sv.KINDS[o["kind"]],
-                    o["table_name"] or o["customer_name"] or "", fmt(o["subtotal_cents"]),
-                    fmt(o["service_cents"]), fmt(o["delivery_fee_cents"]), fmt(o["total_cents"]), pays])
+                    _cell(o["table_name"] or o["customer_name"] or ""), fmt(o["subtotal_cents"]),
+                    fmt(o["service_cents"]), fmt(o["delivery_fee_cents"]), fmt(o["total_cents"]), _cell(pays)])
     name = f"vendas_{start}_{end}.csv"
     return Response("\ufeff" + out.getvalue(), mimetype="text/csv",
                     headers={"Content-Disposition": f"attachment; filename={name}"})
