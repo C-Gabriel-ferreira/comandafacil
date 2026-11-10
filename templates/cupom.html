@@ -8,7 +8,7 @@ h1{font-size:15px;text-align:center;margin:0}.c{text-align:center}hr{border:0;bo
 .note{padding-left:10px;font-size:11px}
 @media print{.no-print{display:none}}
 </style></head><body>
-<div class="no-print"><button onclick="window.print()">🖨 Imprimir</button> <a href="{{ url_for('main.comanda', order_id=order.id) }}">← Voltar</a></div>
+<div class="no-print"><button type="button" data-print>🖨 Imprimir</button> <a href="{{ url_for('main.comanda', order_id=order.id) }}">← Voltar</a></div>
 <h1>{{ business_name }}</h1>{% if phone %}<div class="c">{{ phone }}</div>{% endif %}
 <hr>
 <div class="r"><span>{{ order_title(order) }}</span><span>#{{ order.id }}</span></div>
@@ -26,4 +26,4 @@ h1{font-size:15px;text-align:center;margin:0}.c{text-align:center}hr{border:0;bo
 {% if payments %}<hr>{% for p in payments %}<div class="r"><span>{{ p.method }}</span><span>{{ p.amount_cents|brl }}</span></div>{% endfor %}{% endif %}
 <hr><div class="c">{{ footer }}</div>
 <div class="c" style="font-size:10px;margin-top:6px">ComandaFácil · {{ VENDOR.name }} · {{ VENDOR.phone }}</div>
-</body></html>
+<script src="{{ url_for('static', filename='app.js') }}"></script></body></html>

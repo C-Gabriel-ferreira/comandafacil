@@ -59,10 +59,20 @@ Cada cliente recebe uma **licença** (texto `CF1.…`) que define quantos usuár
 Perder a chave privada impede emitir novas licenças para os sistemas já entregues. O aplicativo de desktop (PySide6) ainda **não** aplica o limite de usuários: ele é feito na versão web.
 
 ## Testes
-`python -m unittest discover -s tests -v` (48 testes).
+`python -m unittest discover -s tests -v` .
+
+## Segurança (resumo)
+- Senhas com hash (scrypt), mínimo de 8 caracteres e recusa de senhas óbvias (`12345678`, `senha123`, igual ao usuário).
+- Login com limite de tentativas por usuário, por IP e por conta (a mensagem diz quanto esperar) e sem diferença de tempo entre usuário existente e inexistente.
+- Trocar ou redefinir a senha derruba as outras sessões abertas daquele usuário. A sessão dura 12 h; "Manter conectado" estende para 14 dias.
+- Proteção contra CSRF em todo formulário, cabeçalhos `Content-Security-Policy`, `X-Frame-Options`, `Permissions-Policy`, e corpo de requisição limitado a 2 MB.
+- O endereço pós-login (`?next=`) só aceita caminhos internos. A exportação CSV neutraliza fórmulas de planilha.
+- Recuperação de senha por e-mail só é oferecida online (`COMANDAFACIL_HTTPS=1`) se `COMANDAFACIL_PUBLIC_URL` estiver definido, para o link não depender do cabeçalho `Host`.
+- O primeiro acesso (`/setup`) cria o gerente: em servidor na internet, abra o endereço e crie a conta logo após subir o sistema.
+- Os contadores de tentativas ficam na memória do processo: rode **um** processo (padrão do `python app.py` e do Docker deste projeto).
 
 ## Cuidados
 - Faça cópia da pasta de dados/`backups` fora do servidor periodicamente (há também download em *Configurações*).
 - Não use `COMANDAFACIL_BEHIND_PROXY=1` sem proxy na frente (permitiria forjar o IP e burlar o bloqueio de tentativas de login).
 - SQLite atende bem um restaurante (dezenas de usuários simultâneos); para várias lojas num só servidor seria preciso outro banco.
-- **WhatsApp ao lado do sistema:** o WhatsApp Web recusa ser embutido dentro de outra página (nenhum site consegue), então o botão verde "WhatsApp" do topo abre o WhatsApp em uma janela encaixada à direita da tela. Use o botão ao lado para ajustar a largura e "Abrir o sistema em janela própria" para o sistema ocupar a metade esquerda. Permita pop-ups para o endereço do sistema. Para integração *dentro* da tela (caixa de conversas no próprio sistema) seria preciso a API oficial do WhatsApp Business (Meta), ou voltar ao aplicativo de desktop.
+- **WhatsApp:** o botão "Mensagem" da comanda monta o texto e abre a conversa do cliente no WhatsApp Web, em outra aba. O sistema não envia nada sozinho. Integração dentro da tela exigiria a API oficial do WhatsApp Business (Meta).

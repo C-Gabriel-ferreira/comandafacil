@@ -55,8 +55,11 @@
     const f = e.target;
     if (f.dataset.sent === "1") { e.preventDefault(); return; }
     f.dataset.sent = "1";
+    const lb = $("[data-loading]", f), label = lb ? lb.textContent : "";
+    if (lb) { lb.classList.add("loading"); lb.textContent = lb.dataset.loading; }
     setTimeout(() => $$("button[type=submit],button:not([type])", f).forEach(b => { b.disabled = true; }), 0);
-    setTimeout(() => { f.dataset.sent = ""; $$("button", f).forEach(b => { b.disabled = false; }); }, 4000);
+    setTimeout(() => { f.dataset.sent = ""; $$("button", f).forEach(b => { b.disabled = false; });
+      if (lb) { lb.classList.remove("loading"); lb.textContent = label; } }, 4000);
   });
 
   // ---------- diálogos ----------
@@ -112,40 +115,13 @@
     splitN.addEventListener("input", run); run();
   }
 
-  // ---------- WhatsApp acoplado ----------
-  const SPLIT = "cf_split", WA = "comandafacil_whatsapp", APP = "comandafacil_app";
-  const split = () => { let v = NaN; try { v = parseInt(localStorage.getItem(SPLIT), 10); } catch (e) {} return v >= 40 && v <= 75 ? v : 60; };
-  function geom(side) {
-    const L = screen.availLeft || 0, T = screen.availTop || 0, W = screen.availWidth, H = screen.availHeight, lw = Math.round(W * split() / 100);
-    return side === "app" ? { left: L, top: T, width: lw, height: H } : { left: L + lw, top: T, width: W - lw, height: H };
-  }
-  // 'popup' mede a área interna; desconta a moldura da janela para não passar da tela
-  const feat = g => "popup=yes,left=" + g.left + ",top=" + g.top + ",width=" + Math.max(360, g.width - 16) + ",height=" + Math.max(400, g.height - 72);
+  // ---------- WhatsApp: abre a conversa em outra aba ----------
   function openWA(url) {
-    if (window.__cfWA && !window.__cfWA.closed && !url) { window.__cfWA.focus(); return window.__cfWA; }
-    const w = window.open(url || "https://web.whatsapp.com/", WA, feat(geom("wa")));
-    if (!w) { toast("O navegador bloqueou a janela do WhatsApp. Permita pop-ups para este endereço e tente de novo.", { kind: "erro" }); return null; }
-    window.__cfWA = w; try { w.focus(); } catch (e) {} return w;
+    const w = window.open(url || "https://web.whatsapp.com/", "comandafacil_whatsapp");
+    if (!w) toast("O navegador bloqueou a janela do WhatsApp. Permita pop-ups para este endereço e tente de novo.", { kind: "erro" });
+    return w;
   }
-  function fitSelf() { if (window.name === APP) { try { const g = geom("app"); window.moveTo(g.left, g.top); window.resizeTo(g.width, g.height); } catch (e) {} } }
-  function openApp() {
-    const w = window.open(location.href, APP, feat(geom("app")));
-    if (!w) { toast("O navegador bloqueou a nova janela. Permita pop-ups e tente de novo.", { kind: "erro" }); return; }
-    toast("Sistema aberto em janela própria, no lado esquerdo. Você pode fechar esta aba.", { kind: "sucesso" });
-  }
-  function dock() {
-    fitSelf();
-    const w = openWA();
-    if (w && window.name !== APP) toast("WhatsApp aberto ao lado direito.", { kind: "sucesso", sticky: true, actionLabel: "Ajustar o sistema ao lado", onAction: openApp });
-  }
-  const dockBtn = $("#wa-dock"); if (dockBtn) dockBtn.addEventListener("click", dock);
-  const range = $("#split-range");
-  if (range) {
-    range.value = split(); $("#split-val").textContent = range.value;
-    range.addEventListener("input", () => { $("#split-val").textContent = range.value; try { localStorage.setItem(SPLIT, range.value); } catch (e) {} });
-    $("#dock-now").addEventListener("click", () => { if (window.__cfWA && !window.__cfWA.closed) { try { window.__cfWA.close(); } catch (e) {} window.__cfWA = null; } $("#dlg-dock").close(); dock(); });
-    $("#open-app").addEventListener("click", () => { $("#dlg-dock").close(); openApp(); });
-  }
+  document.addEventListener("click", e => { if (e.target.closest("[data-print]")) window.print(); });
   window.cf = { toast, openWhatsApp: u => openWA(u) };
 
   // ---------- comanda: mensagem do WhatsApp ----------

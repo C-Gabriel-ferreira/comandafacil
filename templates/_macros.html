@@ -12,9 +12,9 @@
 {% macro auth_msgs() -%}
 {% for cat, msg in get_flashed_messages(with_categories=true) %}<div class="auth-msg {{ cat }}" role="{{ 'alert' if cat == 'erro' else 'status' }}">{{ msg }}</div>{% endfor %}
 {%- endmacro %}
-{% macro password_field(name, label, autocomplete, minlength=none, autofocus=false, link=none, data='') -%}
+{% macro password_field(name, label, autocomplete, minlength=none, autofocus=false, link=none, data='', invalid=false) -%}
 <div class="field"><div class="label-row"><label for="f-{{ name }}">{{ label }}</label>{% if link %}<a href="{{ link[0] }}">{{ link[1] }}</a>{% endif %}</div>
-<div class="pw"><input id="f-{{ name }}" name="{{ name }}" type="password" required autocomplete="{{ autocomplete }}"{% if minlength %} minlength="{{ minlength }}"{% endif %}{% if autofocus %} autofocus{% endif %}{% if data %} {{ data }}{% endif %}>
+<div class="pw"><input id="f-{{ name }}" name="{{ name }}" type="password" required autocomplete="{{ autocomplete }}"{% if minlength %} minlength="{{ minlength }}"{% endif %}{% if autofocus %} autofocus{% endif %}{% if invalid %} aria-invalid="true"{% endif %}{% if data %} {{ data }}{% endif %}>
 <button type="button" class="pw-toggle" data-pw-toggle aria-label="Mostrar senha" aria-pressed="false">{{ icon('eye', 'ic-on') }}{{ icon('eye-off', 'ic-off') }}</button></div>
 <small class="caps-hint" hidden role="status">{{ icon('alert') }} Caps Lock está ligado</small></div>
 {%- endmacro %}

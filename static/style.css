@@ -36,7 +36,6 @@ background:linear-gradient(135deg,var(--brand-2),var(--brand));box-shadow:0 6px 
 .nav-item:hover{background:var(--surface-2);color:var(--ink)}
 .nav-item.on{background:var(--brand-soft);color:var(--brand)}
 .sb-foot{margin-top:auto;display:grid;gap:.5rem;padding-top:.8rem;border-top:1px solid var(--line)}
-.dock{display:flex;gap:.4rem}
 .user{display:flex;align-items:center;gap:.6rem;padding:.35rem .4rem}
 .avatar{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:.9rem;background:var(--brand-soft);color:var(--brand);flex:none}
 .user-txt{min-width:0;line-height:1.2;flex:1}.user-txt b{display:block;font-size:.9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.user-txt small{font-size:.75rem}
@@ -171,7 +170,7 @@ input[type=range]{width:100%;accent-color:var(--brand);padding:0;border:0;box-sh
 
 td small{display:block}
 @media(max-width:620px){
- .topbar .crumb,.topbar .dock .lbl,.topbar .dock .btn.icon{display:none}.topbar .sp{flex:1}
+ .topbar .crumb{display:none}.topbar .sp{flex:1}
  .mesas{grid-template-columns:repeat(2,minmax(0,1fr));gap:.6rem}.mesa{min-height:104px;padding:.8rem}
  .stats{grid-template-columns:1fr 1fr}.stat{padding:.8rem}.stat .chip-ic{display:none}.stat b{font-size:1.25rem}
  .page-head h1{font-size:1.4rem}
@@ -250,3 +249,14 @@ background:linear-gradient(155deg,var(--brand-2),var(--brand) 72%)}
  .auth-split{grid-template-columns:1fr;border-radius:24px}.auth-hero{display:none}
  .auth-split .auth-card{padding:1.8rem 1.4rem}.auth-card .brand.only-mobile{display:flex}
 }
+
+/* login: campo com erro, "manter conectado" e botão carregando */
+input[aria-invalid=true]{border-color:var(--err);box-shadow:0 0 0 3px color-mix(in srgb,var(--err) 18%,transparent)}
+.check{display:flex;align-items:center;gap:.55rem;margin:.1rem 0 1rem;font-size:.92rem;color:var(--ink);cursor:pointer}
+.check input{width:1.15rem;height:1.15rem;margin:0;accent-color:var(--brand)}
+.check small{color:var(--muted)}
+.field .hint{display:block;margin-top:.3rem;font-size:.82rem;color:var(--muted)}
+.btn.loading{pointer-events:none;opacity:.85}
+.btn.loading::after{content:"";width:1em;height:1em;margin-left:.6rem;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;display:inline-block;vertical-align:-.15em;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.btn.loading::after{animation-duration:2s}}

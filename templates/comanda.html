@@ -32,7 +32,7 @@
         <td class="r">{{ (it.unit_price_cents * it.quantity)|brl }}</td>
         <td class="r">{% if open %}<form method="post" action="{{ url_for('main.remover_item', item_id=it.id) }}">{{ fields() }}<button class="btn sm danger" title="Remover item">✕</button></form>{% endif %}</td>
       </tr>{% endfor %}</table></div>
-    {% else %}<p class="muted">Nenhum item ainda. Escolha no cardápio ao lado.</p>{% endif %}
+    {% else %}<p class="muted">Nenhum item ainda. Escolha um produto no cardápio.</p>{% endif %}
 
     <div class="totals" style="margin-top:.8rem">
       <div><span>Subtotal</span><span>{{ totals.subtotal|brl }}</span></div>

@@ -255,7 +255,7 @@ class HttpFlowTests(unittest.TestCase):
 
     def test_full_flow_and_waiter_permissions(self):
         self.login_manager()
-        self.post("/usuarios/adicionar", "/usuarios", username="joao", password="senha123", role="garcom", display_name="João")
+        self.post("/usuarios/adicionar", "/usuarios", username="joao", password="cardapio-77x", role="garcom", display_name="João")
         # fluxo do gerente: abrir, adicionar, fechar
         r = self.post("/mesa/1/abrir")
         self.assertEqual(r.status_code, 302)
@@ -280,7 +280,7 @@ class HttpFlowTests(unittest.TestCase):
         # garçom não acessa áreas de gerente
         self.post("/logout", "/")
         t = self.token("/login")
-        self.c.post("/login", data=dict(_csrf=t, username="joao", password="senha123"))
+        self.c.post("/login", data=dict(_csrf=t, username="joao", password="cardapio-77x"))
         for p in ("/produtos", "/usuarios", "/relatorios", "/config", "/auditoria"):
             self.assertEqual(self.c.get(p).status_code, 403, p)
         self.assertEqual(self.c.get("/").status_code, 200)
@@ -412,7 +412,7 @@ class LicenseTests(unittest.TestCase):
                                       clock.today() + timedelta(days=days))
 
     def add_user(self, name):
-        return self.post("/usuarios/adicionar", username=name, password="senha123", role="garcom")
+        return self.post("/usuarios/adicionar", username=name, password="cardapio-77x", role="garcom")
 
     def active_count(self):
         c = dbm.connect(); n = c.execute("SELECT COUNT(*) FROM users WHERE active=1").fetchone()[0]; c.close()
@@ -488,7 +488,7 @@ class LicenseTests(unittest.TestCase):
         self.post("/login", "/login", username="gerente", password="segredo1")
         self.add_user("ana")
         self.post("/logout", "/")
-        self.post("/login", "/login", username="ana", password="senha123")
+        self.post("/login", "/login", username="ana", password="cardapio-77x")
         self.assertEqual(self.c.get("/usuarios").status_code, 403)
         self.assertEqual(self.post("/usuarios/licenca", "/", license=self.lic(5)).status_code, 403)
 
@@ -815,13 +815,13 @@ class AccountAccessTests(unittest.TestCase):
     # ---- gerente cadastra e-mails
     def test_manager_sets_email_and_change_unlinks_google(self):
         self.login("gerente", "segredo1")
-        self.post("/usuarios/adicionar", "/usuarios", username="joao", password="senha123", role="garcom",
+        self.post("/usuarios/adicionar", "/usuarios", username="joao", password="cardapio-77x", role="garcom",
                   email="Joao@Exemplo.com")
         self.assertEqual(self.row("joao")["email"], "joao@exemplo.com")
-        self.post("/usuarios/adicionar", "/usuarios", username="maria", password="senha123", role="garcom",
+        self.post("/usuarios/adicionar", "/usuarios", username="maria", password="cardapio-77x", role="garcom",
                   email="joao@exemplo.com")  # duplicado
         self.assertIsNone(self.row("maria"))
-        self.post("/usuarios/adicionar", "/usuarios", username="pedro", password="senha123", role="garcom",
+        self.post("/usuarios/adicionar", "/usuarios", username="pedro", password="cardapio-77x", role="garcom",
                   email="isto-nao-e-email")
         self.assertIsNone(self.row("pedro"))
         c = dbm.connect(); c.execute("UPDATE users SET google_sub='abc' WHERE username='joao'"); c.close()

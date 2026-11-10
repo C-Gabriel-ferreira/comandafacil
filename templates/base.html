@@ -3,7 +3,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#f6f5f2">
 <title>{% block title %}{{ business_name }}{% endblock %}</title>
-<script>(function(){try{var t=localStorage.getItem('cf_theme');if(t!=='light'&&t!=='dark'){t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}document.documentElement.dataset.theme=t}catch(e){}})()</script>
+<script src="{{ url_for('static', filename='theme.js') }}"></script>
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"></head>
 <body>
 {% include "_icons.html" %}
@@ -52,10 +52,6 @@
     <header class="topbar">
       <button class="btn icon ghost menu-btn" type="button" data-menu aria-label="Abrir menu">{{ icon('menu') }}</button>
       <span class="crumb">{{ ns.label }}</span><span class="sp"></span>
-      <div class="dock">
-        <button class="btn wa sm" type="button" id="wa-dock" title="Abrir o WhatsApp ao lado do sistema">{{ icon('chat') }}<span class="lbl">WhatsApp</span></button>
-        <button class="btn icon sm" type="button" data-open="dlg-dock" title="Ajustar o WhatsApp ao lado" aria-label="Ajustar o WhatsApp ao lado">{{ icon('panel') }}</button>
-      </div>
       {{ theme_toggle('sm') }}
     </header>
     {{ flashes() }}
@@ -63,18 +59,6 @@
   </div>
 </div>
 
-<dialog id="dlg-dock"><h2>WhatsApp ao lado do sistema</h2>
-  <p class="muted">O WhatsApp Web não permite ser embutido dentro de outra página. Este modo abre o WhatsApp em uma janela encaixada ao lado direito da tela, para você atender e lançar o pedido sem trocar de aba.</p>
-  <div class="field"><label>Largura do sistema: <b id="split-val">60</b>% da tela</label><input type="range" id="split-range" min="40" max="75" step="5" value="60"></div>
-  <div class="stack">
-    <button class="btn pri" type="button" id="dock-now" style="width:100%">{{ icon('chat') }} Acoplar WhatsApp agora</button>
-    <button class="btn" type="button" id="open-app" style="width:100%">{{ icon('panel') }} Abrir o sistema em janela própria (lado esquerdo)</button>
-  </div>
-  <p class="muted"><small>• O navegador só consegue ajustar janelas que ele mesmo abriu; por isso use “janela própria” uma vez para o sistema ocupar a metade esquerda.<br>
-  • Permita pop-ups para este endereço se o navegador perguntar.<br>
-  • Para mudar a largura depois, feche a janela do WhatsApp e acople de novo.<br>
-  • Atalho do Windows: Win + ← no sistema e Win + → no WhatsApp.</small></p>
-  <button class="btn" type="button" data-close>Fechar</button></dialog>
 {% else %}
 <div class="auth-top">{{ theme_toggle() }}</div>
 <div class="auth-wrap{% block auth_cls %}{% endblock %}"><div>{% block auth_flashes %}{{ flashes() }}{% endblock %}{% block auth %}{{ self.content() }}{% endblock %}</div></div>

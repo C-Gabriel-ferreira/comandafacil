@@ -8,7 +8,7 @@ from .. import db as dbm
 from .. import license as lic
 from ..db import get_db, get_setting, now, set_setting
 from ..security import audit, idempotent, manager_required
-from .auth import MIN_PASSWORD, USERNAME_RE, normalize_email
+from .auth import MIN_PASSWORD, USERNAME_RE, normalize_email, password_problem
 
 bp = Blueprint("admin", __name__)
 
@@ -46,6 +46,8 @@ def adicionar_usuario():
         return redirect(url_for("admin.usuarios"))
     if not USERNAME_RE.match(username) or len(pw) < MIN_PASSWORD:
         flash(f"Usuário (3-30 letras/números) e senha (mínimo {MIN_PASSWORD} caracteres) são obrigatórios.", "erro")
+    elif (problem := password_problem(pw, username)):
+        flash(problem, "erro")
     elif conn.execute("SELECT 1 FROM users WHERE lower(username)=lower(?)", (username,)).fetchone():
         flash("Esse nome de usuário já existe.", "erro")
     elif email and conn.execute("SELECT 1 FROM users WHERE lower(email)=lower(?)", (email,)).fetchone():
@@ -89,8 +91,8 @@ def atualizar_usuario(uid):
         conn.execute("UPDATE users SET email=?, google_sub=NULL WHERE id=?", (email, uid))
     new_pw = request.form.get("password", "")
     if new_pw:
-        if len(new_pw) < MIN_PASSWORD:
-            flash(f"A nova senha precisa de ao menos {MIN_PASSWORD} caracteres.", "erro")
+        if (problem := password_problem(new_pw, u["username"])):
+            flash(problem, "erro")
             return redirect(url_for("admin.usuarios"))
         conn.execute("UPDATE users SET password_hash=? WHERE id=?", (generate_password_hash(new_pw), uid))
     audit(conn, "usuario_atualizado", f"{u['username']}: perfil={role} ativo={active}"
