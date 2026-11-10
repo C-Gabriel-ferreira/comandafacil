@@ -2,6 +2,11 @@
 
 Cada versão nova aparece dentro do programa (botão "Novidades") e pode ser instalada por cima, sem perder dados.
 
+## 2.9.0 — 10/11/2026
+- **Login novo na janela do PDV:** entra com usuário **ou e-mail**, com opção de mostrar a senha e o botão "Esqueci minha senha".
+- **Redefinir senha com código do suporte:** funciona sem internet; o código vale uma vez só.
+- **Primeiro acesso com licença:** o campo de licença define o e-mail do responsável e libera o número de usuários contratado. Sem licença, o sistema funciona em avaliação (3 usuários).
+
 ## 2.8.0 — 10/11/2026
 - **Nova tela de login:** visual renovado, mostrar/ocultar senha, aviso de Caps Lock e entrada por usuário **ou e-mail**.
 - **Entrar com o Google (só o gerente):** opcional, ativado quando o Google está configurado no servidor (`COMANDAFACIL_GOOGLE_*`). Garçons e demais usuários continuam com usuário e senha.

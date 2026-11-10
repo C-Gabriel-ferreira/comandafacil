@@ -2,11 +2,13 @@
 
 A interface só chama este módulo. As regras de negócio continuam em comandafacil/services.py.
 """
+import hashlib
+import sqlite3
 import time
 
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from comandafacil import cash, db as dbm, online, receipt, services, updater
+from comandafacil import cash, db as dbm, license as lic, online, receipt, services, updater
 from comandafacil import clock
 from comandafacil.clock import minutes_since
 from comandafacil.db import transaction
@@ -42,26 +44,46 @@ class Controller:
         self.conn.execute("INSERT INTO audit_log(ts,user_name,action,details) VALUES (?,?,?,?)",
                           (dbm.now(), who, action, details))
 
-    def create_manager(self, username, display_name, password):
-        """Primeiro acesso: cria o gerente. Só funciona se ainda não houver usuários."""
+    def create_manager(self, username, display_name, password, email="", license_token=""):
+        """Primeiro acesso: cria o gerente. Só funciona se ainda não houver usuários.
+
+        Com licença, o e-mail do gerente passa a ser o do responsável nela e a licença já fica ativada."""
         if self.has_users():
             raise BusinessError("O cadastro inicial já foi feito.")
         username, display_name = (username or "").strip().lower(), (display_name or "").strip()
+        email, token = (email or "").strip().lower() or None, (license_token or "").strip()
         if len(username) < 3:
             raise BusinessError("O usuário precisa ter ao menos 3 caracteres.")
         if len(password or "") < MIN_PASSWORD:
             raise BusinessError(f"A senha precisa ter ao menos {MIN_PASSWORD} caracteres.")
+        if email and ("@" not in email or "." not in email.rsplit("@", 1)[-1] or " " in email):
+            raise BusinessError("Informe um e-mail válido.")
+        info = None
+        if token:
+            try:
+                email = lic.parse(token)["owner_email"] or email
+                info = lic.validate(token, email or "")
+            except lic.LicenseError as exc:
+                raise BusinessError(str(exc)) from None
         self.conn.execute(
-            "INSERT INTO users(username,display_name,password_hash,role,created_at) VALUES (?,?,?,?,?)",
-            (username, display_name or username, generate_password_hash(password), "gerente", dbm.now()))
+            "INSERT INTO users(username,display_name,password_hash,role,created_at,email) VALUES (?,?,?,?,?,?)",
+            (username, display_name or username, generate_password_hash(password), "gerente", dbm.now(), email))
         self.audit("setup", f"gerente {username} criado")
+        if info:
+            lic.save(self.conn, token, email or "")
+            self.audit("licenca_ativada", f"{info['customer']}: {info['max_users']} usuários "
+                                          f"até {info['expires']:%d/%m/%Y}")
+
+    def license_status(self) -> dict:
+        return lic.status(self.conn)
 
     def login(self, username, password):
         key = (username or "").strip().lower()
         fails, until = self._fails.get(key, (0, 0.0))
         if fails >= MAX_FAILS and time.time() < until:
             raise BusinessError("Muitas tentativas. Aguarde alguns minutos para tentar de novo.")
-        row = self.conn.execute("SELECT * FROM users WHERE username=? AND active=1", (key,)).fetchone()
+        row = self.conn.execute(
+            "SELECT * FROM users WHERE (lower(username)=? OR lower(email)=?) AND active=1", (key, key)).fetchone()
         if not row or not check_password_hash(row["password_hash"], password or ""):
             fails += 1
             self._fails[key] = (fails, time.time() + LOCK_SECONDS)
@@ -71,6 +93,40 @@ class Controller:
         self.user = row
         self.audit("login", key)
         return row
+
+    def reset_with_code(self, code, password, password2):
+        """Nova senha com o código de uso único emitido pelo suporte (funciona offline)."""
+        code = "".join((code or "").split())
+        fails, until = self._fails.get("#codigo", (0, 0.0))
+        if fails >= 5 and time.time() < until:
+            raise BusinessError("Muitas tentativas. Aguarde alguns minutos para tentar de novo.")
+
+        def bad(msg):
+            self._fails["#codigo"] = (fails + 1, time.time() + LOCK_SECONDS)
+            raise BusinessError(msg)
+
+        try:
+            info = lic.parse_reset_code(code)
+        except lic.LicenseError as exc:
+            bad(str(exc))
+        row = self.conn.execute("SELECT * FROM users WHERE lower(email)=lower(?) AND active=1",
+                                (info["email"],)).fetchone()
+        if not row:
+            bad("Não há usuário ativo com o e-mail deste código.")
+        if len(password or "") < MIN_PASSWORD or password != password2:  # confere antes de gastar o código
+            raise BusinessError(f"A senha precisa ter ao menos {MIN_PASSWORD} caracteres e coincidir nos dois campos.")
+        stamp = dbm.now()
+        try:  # token_hash é UNIQUE: o mesmo código só vale uma vez
+            self.conn.execute(
+                "INSERT INTO password_resets(user_id,token_hash,created_at,expires_at,used_at) VALUES (?,?,?,?,?)",
+                (row["id"], hashlib.sha256(code.encode()).hexdigest(), stamp,
+                 time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(info["exp"])), stamp))
+        except sqlite3.IntegrityError:
+            bad("Este código já foi usado. Peça um novo ao suporte.")
+        self.conn.execute("UPDATE users SET password_hash=? WHERE id=?", (generate_password_hash(password), row["id"]))
+        self._fails.pop("#codigo", None)
+        self.audit("senha_redefinida", f"por código do suporte: {row['username']}")
+        return row["username"]
 
     def logout(self):
         if self.user:

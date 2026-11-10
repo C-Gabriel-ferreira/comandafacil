@@ -132,6 +132,12 @@ def run_selftest(outdir) -> int:
         app.processEvents()
         pay.grab().save(str(out / "pagamento.png"))
         pay.close()
+        for name, dialog in (("login", dlg.LoginDialog(ctrl)), ("redefinir-senha", dlg.ResetCodeDialog(ctrl)),
+                             ("primeiro-acesso", dlg.SetupDialog(ctrl))):
+            dialog.show()
+            app.processEvents()
+            dialog.grab().save(str(out / f"{name}.png"))
+            dialog.close()
         text = ctrl.receipt_text(oid)
         assert "CONFERENCIA" in text and "R$" in text
         log.write_text("SELFTEST OK\n", encoding="utf-8")
