@@ -1,0 +1,26 @@
+{% extends "base.html" %}{% from "_macros.html" import fields, icon, auth_msgs, password_field %}
+{% block title %}Nova senha · {{ business_name }}{% endblock %}
+{% block auth_flashes %}{% endblock %}
+{% block auth %}
+<div class="auth-card">
+  <div class="brand"><span class="brand-mark">{{ icon('utensils') }}</span><span class="brand-name">{{ business_name }}<small class="muted">gestão de comandas</small></span></div>
+  {% if invalid %}
+  <div class="auth-ok">
+    <span class="big-ic warn">{{ icon('alert') }}</span>
+    <h1>Link inválido ou vencido</h1>
+    <p class="muted">Esse link de recuperação já foi usado ou passou de 30 minutos. Peça um novo para continuar.</p>
+    <a class="btn pri lg" href="{{ url_for('auth.forgot') }}">Pedir novo link</a>
+  </div>
+  {% else %}
+  <h1>Crie uma nova senha</h1>
+  <p class="muted">Nova senha para o usuário <b>{{ username }}</b>. Use pelo menos 8 caracteres.</p>
+  {{ auth_msgs() }}
+  <form method="post" action="{{ url_for('auth.reset', token=token) }}">{{ fields() }}
+    {{ password_field('password', 'Nova senha', 'new-password', minlength=8, autofocus=true, data='data-pw-new') }}
+    {{ password_field('password2', 'Repita a nova senha', 'new-password', minlength=8, data='data-pw-confirm') }}
+    <p class="pw-match" id="pw-match" hidden role="status"></p>
+    <button class="btn pri lg" type="submit">Salvar nova senha</button>
+  </form>
+  {% endif %}
+  <a class="back-link" href="{{ url_for('auth.login') }}">{{ icon('back') }} Voltar ao login</a>
+</div>{% endblock %}

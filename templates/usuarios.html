@@ -1,15 +1,30 @@
 {% extends "base.html" %}{% from "_macros.html" import fields %}{% block content %}
+<div class="card"><div class="row sb"><h2 style="margin:0">Licença</h2>
+{% if lic.state == 'ok' %}<span class="badge ok dot">Ativa</span>{% elif lic.state == 'expired' %}<span class="badge err dot">Vencida</span>{% elif lic.state == 'invalid' %}<span class="badge err dot">Inválida</span>{% else %}<span class="badge warn dot">Avaliação</span>{% endif %}</div>
+<p style="margin:.6rem 0 .2rem"><b class="num">{{ lic.active }} de {{ lic.max_users }}</b> usuários ativos
+{% if lic.state in ('ok','expired') %}· vence em <b>{{ lic.expires.strftime('%d/%m/%Y') }}</b>{% if lic.state == 'ok' %} ({{ lic.days_left }} dias){% endif %}{% endif %}</p>
+{% if lic.state in ('ok','expired') %}<p class="muted"><small>{{ lic.customer }} · responsável: {{ lic.owner_email or 'não definido' }}</small></p>
+{% elif lic.state == 'invalid' %}<p class="muted"><small>{{ lic.message }}</small></p>
+{% else %}<p class="muted"><small>Sem licença ativada: modo de avaliação com até {{ lic.max_users }} usuários. Cole sua licença abaixo para liberar o número contratado.</small></p>{% endif %}
+{% if lic.state == 'expired' %}<p class="muted"><small>Os usuários atuais continuam entrando; renove para criar ou reativar usuários.</small></p>{% endif %}
+<form method="post" action="{{ url_for('admin.ativar_licenca') }}">{{ fields() }}
+  <div class="field"><label for="f-license">Chave de licença</label><textarea id="f-license" name="license" rows="2" required spellcheck="false" autocomplete="off" placeholder="CF1.…" style="font-family:ui-monospace,monospace;font-size:.8rem"></textarea></div>
+  <button class="btn sm" type="submit">Ativar licença</button>
+  <small class="muted">O e-mail do seu usuário precisa ser o mesmo do responsável na licença.</small></form></div>
 <div class="card"><h2>Novo usuário</h2>
 <form method="post" action="{{ url_for('admin.adicionar_usuario') }}" class="row" style="align-items:end">{{ fields() }}
   <div><label>Usuário</label><input name="username" required pattern="[A-Za-z0-9_.\-]{3,30}"></div>
   <div><label>Nome</label><input name="display_name"></div>
+  <div><label>E-mail (opcional)</label><input name="email" type="email" autocomplete="off"></div>
   <div><label>Senha (mín. 8)</label><input name="password" type="password" minlength="8" required autocomplete="new-password"></div>
   <div><label>Perfil</label><select name="role"><option value="garcom">Garçom</option><option value="gerente">Gerente</option></select></div>
   <button class="btn pri">Criar</button></form>
+<p class="muted"><small>O <b>e-mail</b> permite ao usuário recuperar a senha por e-mail. O login com Google é só para gerentes (a conta Google precisa ter o mesmo e-mail).</small></p>
 <p class="muted"><small><b>Garçom:</b> mesas, comandas, fechamento, impressão, WhatsApp. <b>Gerente:</b> tudo, incluindo produtos, estoque, mesas, relatórios, estornos, usuários e auditoria.</small></p></div>
-<div class="card tblwrap"><table><tr><th>Usuário</th><th>Perfil</th><th>Ativo</th><th>Nova senha (opcional)</th><th></th></tr>
+<div class="card tblwrap"><table><tr><th>Usuário</th><th>E-mail</th><th>Perfil</th><th>Ativo</th><th>Nova senha (opcional)</th><th></th></tr>
 {% for u in users %}<tr><form method="post" action="{{ url_for('admin.atualizar_usuario', uid=u.id) }}">
-<td>{{ fields() }}<b>{{ u.username }}</b><br><small class="muted">{{ u.display_name }}</small></td>
+<td>{{ fields() }}<b>{{ u.username }}</b><br><small class="muted">{{ u.display_name }}</small>{% if u.google_sub %}<br><span class="badge ok">Google vinculado</span>{% endif %}</td>
+<td><input name="email" type="email" value="{{ u.email or '' }}" autocomplete="off" placeholder="sem e-mail"></td>
 <td><select name="role"><option value="garcom" {{ 'selected' if u.role=='garcom' }}>Garçom</option><option value="gerente" {{ 'selected' if u.role=='gerente' }}>Gerente</option></select></td>
 <td><select name="active"><option value="1" {{ 'selected' if u.active }}>Sim</option><option value="0" {{ 'selected' if not u.active }}>Não</option></select></td>
 <td><input name="password" type="password" minlength="8" autocomplete="new-password" placeholder="deixe vazio p/ manter"></td>

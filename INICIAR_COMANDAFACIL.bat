@@ -18,7 +18,7 @@ if errorlevel 1 (
     exit /b 1
   )
 )
-%PY% -c "import flask, waitress" >nul 2>&1
+%PY% -c "import flask, waitress, cryptography" >nul 2>&1
 if errorlevel 1 (
   echo Instalando dependencias...
   %PY% -m pip install -r requirements.txt

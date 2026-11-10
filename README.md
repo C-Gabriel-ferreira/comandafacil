@@ -30,10 +30,36 @@ Outras hospedagens servem se tiverem **disco persistente** (o SQLite grava em ar
 | `COMANDAFACIL_HTTPS=1` | cookies `Secure` + HSTS (use atrás de HTTPS) |
 | `COMANDAFACIL_TZ` | fuso do estabelecimento (padrão `America/Sao_Paulo`); importante em servidores em UTC |
 | `COMANDAFACIL_BEHIND_PROXY=1` | confia no proxy (Caddy/Nginx) para IP e protocolo reais |
+| `COMANDAFACIL_PUBLIC_URL` | endereço público (ex.: `https://comandas.seudominio.com.br`) usado nos links de e-mail e no retorno do Google. **Defina online** |
+| `COMANDAFACIL_GOOGLE_CLIENT_ID` / `_CLIENT_SECRET` | ativam o botão "Entrar com o Google" |
+| `COMANDAFACIL_SMTP_HOST` / `_PORT` / `_USER` / `_PASSWORD` / `_FROM` / `_SECURITY` | ativam a recuperação de senha por e-mail |
 `GET /healthz` responde `{"status":"ok"}` para monitoramento.
 
+## Login com Google
+O Google **não cria contas**: só entra quem já tem usuário e o **mesmo e-mail** cadastrado (o gerente preenche em *Usuários*). No 1º acesso a conta Google fica vinculada ao usuário; se o e-mail do usuário for trocado, o vínculo é desfeito.
+1. Em https://console.cloud.google.com crie um projeto → *APIs e serviços* → *Tela de permissão OAuth* (tipo "Externo" serve) → *Credenciais* → *Criar credenciais* → *ID do cliente OAuth* → tipo **Aplicativo da Web**.
+2. Em *URIs de redirecionamento autorizados* coloque o endereço do sistema + `/login/google/retorno`, por exemplo `http://localhost:5000/login/google/retorno` (PC local) ou `https://comandas.seudominio.com.br/login/google/retorno` (online).
+3. Copie o ID e o segredo para o arquivo `.env` (na pasta do sistema; modelo em `.env.example`) e reinicie. O botão aparece sozinho.
+O Google só aceita `localhost` ou um domínio com HTTPS: o botão não funciona abrindo o sistema por `http://IP-DO-PC:5000` (celulares na rede local). Nesses casos, entre com usuário e senha.
+
+## Recuperação de senha
+Precisa de um e-mail para enviar o link (vale 30 minutos, uso único, no máximo 3 pedidos por hora por conta). Preencha no `.env` os campos `COMANDAFACIL_SMTP_*` (no Gmail: `smtp.gmail.com`, porta 587, e uma *senha de app*) e reinicie. Sem isso, a tela "Esqueci minha senha" orienta a pedir a um gerente, que redefine a senha em *Usuários*. Cada usuário precisa ter e-mail cadastrado para receber o link.
+
+**Sem e-mail (código do suporte):** o dono pede ajuda a você, que gera um código assinado de uso único: `python tools/gerar_licenca.py reset --email dono@gmail.com --horas 24`. O cliente abre `/login/codigo` (link na tela "Esqueci minha senha"), cola o código e define a nova senha. Funciona offline, só vale para o e-mail indicado, expira no prazo e não pode ser reutilizado. A senha é validada antes de o código ser consumido, então um erro de digitação não o queima.
+
+## Licença e limite de usuários
+Cada cliente recebe uma **licença** (texto `CF1.…`) que define quantos usuários ativos ele pode ter (o gerente conta) e até quando vale. No **primeiro acesso** (`/setup`) há um campo opcional de licença: com ela, o e-mail do gerente vem da licença e ela já fica ativada; sem ela, o sistema entra em modo de avaliação. Depois, a licença também pode ser colada em *Usuários → Licença*. A licença traz o **e-mail do responsável** (o Gmail do gerente principal): só um gerente com esse e-mail cadastrado consegue ativá-la. O **login com Google é só para o gerente**; garçons e demais usuários entram com usuário e senha.
+- Sem licença: modo de avaliação com 3 usuários ativos (constante `EVAL_MAX_USERS` em `comandafacil/license.py`).
+- Licença vencida: ninguém é bloqueado no meio do expediente, mas não dá para criar nem reativar usuários.
+- A licença é conferida offline (assinatura Ed25519); o sistema só tem a chave **pública**.
+
+**Para o vendedor** (você, não o cliente):
+1. Uma vez: `python tools/gerar_licenca.py init`. Cria `chave_privada_licenca.pem` (guarde com cópia de segurança; já está no `.gitignore`/`.dockerignore`; **nunca** envie ao cliente) e grava a chave pública em `comandafacil/license_key.py`. Faça isso **antes** de gerar o sistema que vai para os clientes.
+2. Para cada cliente: `python tools/gerar_licenca.py emitir --cliente "Restaurante do Zé" --email dono@gmail.com --usuarios 5 --dias 365` e envie o texto impresso.
+Perder a chave privada impede emitir novas licenças para os sistemas já entregues. O aplicativo de desktop (PySide6) ainda **não** aplica o limite de usuários: ele é feito na versão web.
+
 ## Testes
-`python -m unittest discover -s tests -v` (18 testes).
+`python -m unittest discover -s tests -v` (48 testes).
 
 ## Cuidados
 - Faça cópia da pasta de dados/`backups` fora do servidor periodicamente (há também download em *Configurações*).

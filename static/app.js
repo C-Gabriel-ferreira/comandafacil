@@ -29,6 +29,27 @@
   // ---------- menu lateral (celular) ----------
   $$("[data-menu]").forEach(b => b.addEventListener("click", () => document.body.classList.toggle("nav-open")));
 
+  // ---------- senha: mostrar/ocultar, aviso de Caps Lock e conferência ----------
+  $$("[data-pw-toggle]").forEach(b => b.addEventListener("click", () => {
+    const i = $("input", b.parentElement), show = i.type === "password";
+    i.type = show ? "text" : "password";
+    b.setAttribute("aria-pressed", String(show)); b.setAttribute("aria-label", show ? "Ocultar senha" : "Mostrar senha"); i.focus();
+  }));
+  $$(".pw input").forEach(i => {
+    const hint = $(".caps-hint", i.closest(".field")); if (!hint) return;
+    const upd = e => { hint.hidden = !(e.getModifierState && e.getModifierState("CapsLock")); };
+    i.addEventListener("keydown", upd); i.addEventListener("keyup", upd); i.addEventListener("blur", () => { hint.hidden = true; });
+  });
+  const pwNew = $("[data-pw-new]"), pwOk = $("[data-pw-confirm]"), pwMsg = $("#pw-match");
+  if (pwNew && pwOk && pwMsg) {
+    const chk = () => {
+      if (!pwOk.value) { pwMsg.hidden = true; return; }
+      const same = pwNew.value === pwOk.value; pwMsg.hidden = false;
+      pwMsg.className = "pw-match " + (same ? "ok" : "err"); pwMsg.textContent = same ? "As senhas são iguais." : "As senhas ainda não são iguais.";
+    };
+    pwNew.addEventListener("input", chk); pwOk.addEventListener("input", chk);
+  }
+
   // ---------- bloqueio de duplo clique ----------
   document.addEventListener("submit", function (e) {
     const f = e.target;

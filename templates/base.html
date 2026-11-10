@@ -77,7 +77,7 @@
   <button class="btn" type="button" data-close>Fechar</button></dialog>
 {% else %}
 <div class="auth-top">{{ theme_toggle() }}</div>
-<div class="auth-wrap"><div>{{ flashes() }}{% block auth %}{{ self.content() }}{% endblock %}</div></div>
+<div class="auth-wrap{% block auth_cls %}{% endblock %}"><div>{% block auth_flashes %}{{ flashes() }}{% endblock %}{% block auth %}{{ self.content() }}{% endblock %}</div></div>
 {% endif %}
 <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body></html>

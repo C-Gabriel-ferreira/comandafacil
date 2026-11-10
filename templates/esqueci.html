@@ -1,0 +1,30 @@
+{% extends "base.html" %}{% from "_macros.html" import fields, icon, auth_msgs %}
+{% block title %}Recuperar senha · {{ business_name }}{% endblock %}
+{% block auth_flashes %}{% endblock %}
+{% block auth %}
+<div class="auth-card">
+  <div class="brand"><span class="brand-mark">{{ icon('utensils') }}</span><span class="brand-name">{{ business_name }}<small class="muted">gestão de comandas</small></span></div>
+  {% if sent %}
+  <div class="auth-ok">
+    <span class="big-ic">{{ icon('mail') }}</span>
+    <h1>Verifique seu e-mail</h1>
+    <p class="muted">Se existir uma conta com esse e-mail ou usuário, enviamos um link para criar uma nova senha. Ele vale por 30 minutos e só pode ser usado uma vez.</p>
+    <p class="muted"><small>Não chegou? Olhe a caixa de spam e confira se a sua conta tem um e-mail cadastrado — se não tiver, peça a um gerente em <b>Usuários</b>.</small></p>
+  </div>
+  {% elif not enabled %}
+  <h1>Esqueceu a senha?</h1>
+  <p class="muted">A recuperação por e-mail ainda não está ativada neste sistema. Peça a um gerente para criar uma nova senha para você em <b>Usuários</b>.</p>
+  <p class="muted"><small>Você é o gerente? Peça ao suporte um <b>código de redefinição</b> e use-o <a href="{{ url_for('auth.reset_code') }}">aqui</a>.</small></p>
+  {% else %}
+  <h1>Esqueceu a senha?</h1>
+  <p class="muted">Informe seu e-mail ou usuário e enviaremos um link para você criar uma nova senha.</p>
+  {{ auth_msgs() }}
+  <form method="post" action="{{ url_for('auth.forgot') }}">{{ fields() }}
+    <div class="field"><label for="f-ident">E-mail ou usuário</label>
+      <input id="f-ident" name="ident" value="{{ ident }}" autofocus autocomplete="username" autocapitalize="none" spellcheck="false" required></div>
+    <button class="btn pri lg" type="submit">Enviar link de recuperação</button>
+  </form>
+  {% endif %}
+  {% if enabled and not sent %}<p class="muted" style="margin:1rem 0 0"><small>Tem um código de redefinição do suporte? <a href="{{ url_for('auth.reset_code') }}">Use-o aqui</a>.</small></p>{% endif %}
+  <a class="back-link" href="{{ url_for('auth.login') }}">{{ icon('back') }} Voltar ao login</a>
+</div>{% endblock %}

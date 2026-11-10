@@ -1,0 +1,19 @@
+{% extends "base.html" %}{% from "_macros.html" import fields, icon, auth_msgs, password_field %}
+{% block title %}Código de redefinição · {{ business_name }}{% endblock %}
+{% block auth_flashes %}{% endblock %}
+{% block auth %}
+<div class="auth-card">
+  <div class="brand"><span class="brand-mark">{{ icon('utensils') }}</span><span class="brand-name">{{ business_name }}<small class="muted">gestão de comandas</small></span></div>
+  <h1>Código de redefinição</h1>
+  <p class="muted">Cole o código que o suporte enviou e escolha uma nova senha. Ele vale uma única vez.</p>
+  {{ auth_msgs() }}
+  <form method="post" action="{{ url_for('auth.reset_code') }}">{{ fields() }}
+    <div class="field"><label for="f-code">Código</label>
+      <textarea id="f-code" name="code" rows="3" required autofocus spellcheck="false" autocomplete="off" placeholder="CR1.…" style="font-family:ui-monospace,monospace;font-size:.8rem">{{ request.form.get('code', '') }}</textarea></div>
+    {{ password_field('password', 'Nova senha', 'new-password', minlength=8, data='data-pw-new') }}
+    {{ password_field('password2', 'Repita a nova senha', 'new-password', minlength=8, data='data-pw-confirm') }}
+    <p class="pw-match" id="pw-match" hidden role="status"></p>
+    <button class="btn pri lg" type="submit">Redefinir senha</button>
+  </form>
+  <a class="back-link" href="{{ url_for('auth.login') }}">{{ icon('back') }} Voltar ao login</a>
+</div>{% endblock %}

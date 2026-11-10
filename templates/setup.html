@@ -4,8 +4,12 @@
   <h1 style="font-size:1.4rem">Crie a conta do gerente</h1>
   <p class="muted">O gerente controla produtos, relatórios, usuários e cancelamentos. Os garçons são criados depois, em “Usuários”.</p>
   <form method="post">{{ fields() }}
-    <div class="field"><label>Usuário</label><input name="username" autofocus required pattern="[A-Za-z0-9_.\-]{3,30}"></div>
-    <div class="field"><label>Seu nome</label><input name="display_name"></div>
+    <div class="field"><label for="f-license">Chave de licença <span class="muted">(opcional agora)</span></label>
+      <textarea id="f-license" name="license" rows="2" spellcheck="false" autocomplete="off" placeholder="CF1.… (enviada pelo fornecedor)" style="font-family:ui-monospace,monospace;font-size:.8rem">{{ request.form.get('license', '') }}</textarea>
+      <small class="muted">Com a licença, o e-mail do gerente será o do responsável. Sem ela o sistema roda em avaliação e você pode ativá-la depois em Usuários.</small></div>
+    <div class="field"><label>Usuário</label><input name="username" autofocus required pattern="[A-Za-z0-9_.\-]{3,30}" value="{{ request.form.get('username', '') }}"></div>
+    <div class="field"><label>Seu nome</label><input name="display_name" value="{{ request.form.get('display_name', '') }}"></div>
+    <div class="field"><label>Seu e-mail <span class="muted">(opcional; vem da licença, se houver)</span></label><input name="email" type="email" autocomplete="email" placeholder="para recuperar a senha" value="{{ request.form.get('email', '') }}"></div>
     <div class="field"><label>Senha (mín. 8 caracteres)</label><input name="password" type="password" minlength="8" required autocomplete="new-password"></div>
     <div class="field"><label>Repita a senha</label><input name="password2" type="password" minlength="8" required autocomplete="new-password"></div>
     <button class="btn pri" type="submit" style="width:100%">Criar conta e entrar</button></form>
